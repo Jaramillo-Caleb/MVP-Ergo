@@ -1,0 +1,14 @@
+.dockerignore
+.env
+.git
+.gitignore
+.vs
+.vscode
+bin/
+obj/
+out/
+appsettings.Development.json
+*.db
+*.db-journal
+*.db-shm
+*.db-wal

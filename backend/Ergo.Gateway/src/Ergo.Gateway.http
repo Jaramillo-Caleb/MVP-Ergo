@@ -1,0 +1,6 @@
+@Ergo.Gateway_HostAddress = http://localhost:5244
+
+GET {{Ergo.Gateway_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

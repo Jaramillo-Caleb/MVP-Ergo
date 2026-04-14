@@ -1,0 +1,85 @@
+networks:
+  ergo_network:
+    driver: bridge
+
+services:
+  ergo-gateway:
+    container_name: ergo_gateway
+    build:
+      context: ./backend/Ergo.Gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ReverseProxy__Clusters__worksession-cluster__Destinations__destination1__Address=http://ergo-work-session:8080
+      - ReverseProxy__Clusters__iam-cluster__Destinations__destination1__Address=http://ergo-iam:8080
+    networks:
+      - ergo_network
+    depends_on:
+      - ergo-work-session
+      - ergo-iam
+
+  ergo-iam:
+    container_name: ergo_iam
+    build:
+      context: ./backend/Ergo.IAM
+      dockerfile: Dockerfile
+    ports:
+      - "5001:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - DB_PASSWORD=${DB_PASSWORD_IAM}
+      - Jwt__Key=${JWT_KEY}
+      - Jwt__Issuer=Ergo.IAM
+      - Jwt__Audience=Ergo.Client
+      - EmailSettings__Host=sandbox.smtp.mailtrap.io 
+      - EmailSettings__Port=2525
+      - EmailSettings__UserName=USUARIO_REAL
+      - EmailSettings__Password=PASSWORD_REAL
+      - EmailSettings__FromEmail=caleb.jaramillo57311@ucaldas.edu.co
+      - EmailSettings__FromName=Ergo Security
+    volumes:
+      - ./docker-db/iam:/app/data
+      - ./uploads:/app/wwwroot/uploads
+    networks:
+      - ergo_network
+
+  ergo-ai-engine:
+    container_name: ergo_ai_engine
+    build:
+      context: ./backend/Ergo.AIEngine
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000" 
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./backend/Ergo.AIEngine/app:/code/app
+    networks:
+      - ergo_network
+  
+  ergo-work-session:
+    container_name: ergo_work_session
+    build:
+      context: ./backend/Ergo.WorkSession
+      dockerfile: Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - DB_PASSWORD=${DB_PASSWORD_SESSION}
+      - AIEngine__BaseUrl=http://ergo-ai-engine:8000
+    volumes:
+      - ./docker-db/session:/app/data
+    networks:
+      - ergo_network
+    depends_on:
+      - ergo-ai-engine
+
+volumes:
+  ergo_iam_data:
+  ergo_session_data:
