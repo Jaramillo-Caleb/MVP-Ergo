@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:ergo_desktop/core/theme/app_colors.dart';
-import 'package:ergo_desktop/features/auth/data/services/auth_service.dart';
-import 'package:ergo_desktop/features/auth/presentation/pages/login_page.dart';
 import 'package:ergo_desktop/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:ergo_desktop/features/pomodoro/presentation/pages/pomodoro_page.dart';
 import 'package:ergo_desktop/features/settings/presentation/pages/settings_page.dart';
@@ -18,21 +14,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
-  String _userName = "Cargando...";
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserName();
-  }
-
-  Future<void> _loadUserName() async {
-    final storage = GetIt.instance<FlutterSecureStorage>();
-    final name = await storage.read(key: 'user_name');
-    setState(() {
-      _userName = (name != null && name.isNotEmpty) ? name : "Usuario";
-    });
-  }
+  final String _userName = "Usuario"; // Simplificado para versión local
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +38,6 @@ class _HomePageState extends State<HomePage> {
                 _buildMenuItem(4, "Ayuda", Icons.help_outline),
                 const Spacer(),
                 _buildMenuItem(5, "Configuración", Icons.settings_outlined),
-                _buildMenuItem(6, "Cerrar sesión", Icons.logout),
                 const SizedBox(height: 20),
               ],
             ),
@@ -137,19 +118,8 @@ class _HomePageState extends State<HomePage> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () async {
-            if (index == 6) {
-              final authService = GetIt.instance<AuthService>();
-              await authService.logout();
-
-              if (!mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const LoginPage()),
-                (route) => false,
-              );
-            } else {
-              setState(() => _selectedIndex = index);
-            }
+          onTap: () {
+            setState(() => _selectedIndex = index);
           },
           borderRadius: BorderRadius.circular(10),
           child: Container(

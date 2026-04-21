@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:ergo_desktop/core/theme/app_colors.dart';
 import 'package:ergo_desktop/features/pomodoro/presentation/widgets/time_config_field.dart';
 import 'package:ergo_desktop/core/di/injection_container.dart';
-import 'package:ergo_desktop/features/auth/data/services/auth_service.dart';
 import 'package:ergo_desktop/features/pomodoro/data/services/work_session_service.dart';
 import 'package:ergo_desktop/features/pomodoro/data/models/work_session_model.dart';
 
@@ -16,7 +15,6 @@ class PomodoroPage extends StatefulWidget {
 
 class _PomodoroPageState extends State<PomodoroPage> {
   final _workSessionService = sl<WorkSessionService>();
-  final _authService = sl<AuthService>();
 
   late final TextEditingController _repetitionsController;
   bool _isLoading = true;
@@ -30,15 +28,13 @@ class _PomodoroPageState extends State<PomodoroPage> {
   }
 
   Future<void> _initSettings() async {
-    final userId = await _authService.getUserId();
-    if (userId != null) {
-      await _workSessionService.getSettings(userId);
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _repetitionsController.text = _workSessionService.settings?.repetitions.toString() ?? "1";
-        });
-      }
+    await _workSessionService.getSettings();
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _repetitionsController.text =
+            _workSessionService.settings?.repetitions.toString() ?? "1";
+      });
     }
   }
 
@@ -56,10 +52,7 @@ class _PomodoroPageState extends State<PomodoroPage> {
   }
 
   Future<void> _startWork() async {
-    final userId = await _authService.getUserId();
-    if (userId != null) {
-      await _workSessionService.startWork(userId);
-    }
+    await _workSessionService.startWork();
   }
 
   void _startBreak() {
@@ -80,7 +73,8 @@ class _PomodoroPageState extends State<PomodoroPage> {
 
   void _resetDefaults() {
     _workSessionService.resetDefaults();
-    _repetitionsController.text = _workSessionService.settings?.repetitions.toString() ?? "1";
+    _repetitionsController.text =
+        _workSessionService.settings?.repetitions.toString() ?? "1";
   }
 
   String _formatTime(int totalSeconds) {
@@ -142,7 +136,9 @@ class _PomodoroPageState extends State<PomodoroPage> {
               color: AppColors.textMain),
         ),
         TextButton.icon(
-          onPressed: _workSessionService.state == PomodoroState.idle ? _resetDefaults : null,
+          onPressed: _workSessionService.state == PomodoroState.idle
+              ? _resetDefaults
+              : null,
           icon: const Icon(Icons.refresh, size: 20),
           label: const Text("Reiniciar valores"),
           style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
@@ -155,10 +151,14 @@ class _PomodoroPageState extends State<PomodoroPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        _buildStatItem("Trabajo", _formatTime(_workSessionService.totalWorkSeconds)),
-        _buildStatItem("Descanso", _formatTime(_workSessionService.totalBreakSeconds)),
         _buildStatItem(
-            "General", _formatTime(_workSessionService.totalWorkSeconds + _workSessionService.totalBreakSeconds)),
+            "Trabajo", _formatTime(_workSessionService.totalWorkSeconds)),
+        _buildStatItem(
+            "Descanso", _formatTime(_workSessionService.totalBreakSeconds)),
+        _buildStatItem(
+            "General",
+            _formatTime(_workSessionService.totalWorkSeconds +
+                _workSessionService.totalBreakSeconds)),
       ],
     );
   }
@@ -181,8 +181,12 @@ class _PomodoroPageState extends State<PomodoroPage> {
   Widget _buildTimerCircle() {
     Color borderColor = AppColors.border;
     final state = _workSessionService.state;
-    if (state == PomodoroState.working || state == PomodoroState.workPaused) borderColor = AppColors.primaryBlue;
-    if (state == PomodoroState.breaking || state == PomodoroState.breakPaused) borderColor = Colors.green;
+    if (state == PomodoroState.working || state == PomodoroState.workPaused) {
+      borderColor = AppColors.primaryBlue;
+    }
+    if (state == PomodoroState.breaking || state == PomodoroState.breakPaused) {
+      borderColor = Colors.green;
+    }
 
     return Container(
       width: 300,
@@ -203,14 +207,18 @@ class _PomodoroPageState extends State<PomodoroPage> {
                 color: AppColors.textMain),
           ),
           Text(
-            (state == PomodoroState.breaking || state == PomodoroState.breakPaused) ? "DESCANSO" : "TRABAJO",
+            (state == PomodoroState.breaking ||
+                    state == PomodoroState.breakPaused)
+                ? "DESCANSO"
+                : "TRABAJO",
             style: TextStyle(
                 color: borderColor,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 2),
           ),
           if (_workSessionService.settings?.autoStart ?? false)
-            Text("Ciclo ${_workSessionService.currentRepetition}/${_workSessionService.settings?.repetitions ?? 1}",
+            Text(
+                "Ciclo ${_workSessionService.currentRepetition}/${_workSessionService.settings?.repetitions ?? 1}",
                 style: const TextStyle(color: AppColors.textSecondary)),
         ],
       ),
@@ -235,8 +243,8 @@ class _PomodoroPageState extends State<PomodoroPage> {
       );
     }
 
-    final isPaused = state == PomodoroState.workPaused ||
-        state == PomodoroState.breakPaused;
+    final isPaused =
+        state == PomodoroState.workPaused || state == PomodoroState.breakPaused;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -295,7 +303,8 @@ class _PomodoroPageState extends State<PomodoroPage> {
               activeColor: AppColors.primaryBlue,
               onChanged: canEdit
                   ? (val) {
-                      _workSessionService.updateSettings(settings.copyWith(autoStart: val!));
+                      _workSessionService
+                          .updateSettings(settings.copyWith(autoStart: val!));
                     }
                   : null,
             ),
@@ -316,11 +325,13 @@ class _PomodoroPageState extends State<PomodoroPage> {
               controller: _repetitionsController,
               onChanged: (val) {
                 final repetitions = int.tryParse(val) ?? 1;
-                _workSessionService.updateSettings(settings.copyWith(repetitions: repetitions));
+                _workSessionService.updateSettings(
+                    settings.copyWith(repetitions: repetitions));
               },
               onSubmitted: (val) {
                 final repetitions = int.tryParse(val) ?? 1;
-                _workSessionService.updateSettings(settings.copyWith(repetitions: repetitions));
+                _workSessionService.updateSettings(
+                    settings.copyWith(repetitions: repetitions));
                 _repetitionsController.text = repetitions.toString();
               },
             ),
@@ -332,7 +343,8 @@ class _PomodoroPageState extends State<PomodoroPage> {
           onTimeChanged: canEdit
               ? (val) {
                   final mins = int.tryParse(val.split(':').first) ?? 25;
-                  _workSessionService.updateSettings(settings.copyWith(workDuration: mins));
+                  _workSessionService
+                      .updateSettings(settings.copyWith(workDuration: mins));
                 }
               : null,
         ),
@@ -344,7 +356,8 @@ class _PomodoroPageState extends State<PomodoroPage> {
           onTimeChanged: canEdit
               ? (val) {
                   final mins = int.tryParse(val.split(':').first) ?? 5;
-                  _workSessionService.updateSettings(settings.copyWith(breakDuration: mins));
+                  _workSessionService
+                      .updateSettings(settings.copyWith(breakDuration: mins));
                 }
               : null,
         ),

@@ -1,28 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:ergo_desktop/features/auth/presentation/pages/login_page.dart';
 import 'package:ergo_desktop/features/home/presentation/pages/home_page.dart';
+import 'package:ergo_desktop/features/profile/presentation/pages/complete_profile_page.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/di/injection_container.dart' as di;
 import 'package:ergo_desktop/core/utils/navigator_key.dart';
 import 'package:local_notifier/local_notifier.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:ergo_desktop/features/pomodoro/data/services/work_session_service.dart';
+import 'package:ergo_desktop/features/profile/data/services/profile_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await localNotifier.setup(appName: 'ERGO');
   await di.init();
 
-  final storage = di.sl<FlutterSecureStorage>();
-  final token = await storage.read(key: 'jwt_token');
-  final userId = await storage.read(key: 'user_id');
+  final profileService = di.sl<ProfileService>();
+  final profile = await profileService.getProfile();
 
-  if (token != null && userId != null) {
-    di.sl<WorkSessionService>().prefetchSettings(userId);
+  Widget initialHome;
+  if (profile != null) {
+    di.sl<WorkSessionService>().prefetchSettings();
+    initialHome = const HomePage();
+  } else {
+    initialHome = const CompleteProfilePage();
   }
-
-  final initialHome = (token != null) ? const HomePage() : const LoginPage();
 
   runApp(ErgoApp(initialHome: initialHome));
 }

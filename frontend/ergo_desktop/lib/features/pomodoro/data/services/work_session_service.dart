@@ -35,9 +35,9 @@ class WorkSessionService extends ChangeNotifier {
   WorkSessionService(this._dio, this._notificationService);
 
   /// Permite cargar los settings de forma anticipada (ej. al inicio de la app)
-  Future<void> prefetchSettings(String userId) async {
+  Future<void> prefetchSettings() async {
     if (_settingsCache != null || _pendingFetch != null) return;
-    _pendingFetch = getSettings(userId);
+    _pendingFetch = getSettings();
     _settingsCache = await _pendingFetch;
     _pendingFetch = null;
     if (_settingsCache != null && _state == PomodoroState.idle) {
@@ -94,27 +94,26 @@ class WorkSessionService extends ChangeNotifier {
 
       if ((_settingsCache?.autoStart ?? false) && _currentRepetition < (_settingsCache?.repetitions ?? 1)) {
         _currentRepetition++;
-        startWork(_settingsCache!.userId);
+        startWork();
       } else {
         stopSession();
       }
     }
   }
 
-  Future<void> startWork(String userId) async {
-    if (_settingsCache == null) await getSettings(userId);
+  Future<void> startWork() async {
+    if (_settingsCache == null) await getSettings();
     if (_settingsCache == null) return;
 
-    final request = StartSessionRequest(
-      userId: userId,
-      mode: 0, // Pomodoro Only
-      durationMinutes: _settingsCache!.workDuration,
-    );
+    final request = {
+      "mode": 0, // Pomodoro Only
+      "durationMinutes": _settingsCache!.workDuration,
+    };
 
     try {
       final response = await _dio.post(
         '$_basePath/session/start',
-        data: request.toJson(),
+        data: request,
       );
       if (response.statusCode == 200) {
         final session = WorkSessionDto.fromJson(response.data);
@@ -205,7 +204,7 @@ class WorkSessionService extends ChangeNotifier {
   }
 
   // Persistencia de configuración
-  Future<PomodoroSettings?> getSettings(String userId) async {
+  Future<PomodoroSettings?> getSettings() async {
     // Si ya tenemos cache, lo devolvemos inmediatamente
     if (_settingsCache != null) return _settingsCache;
 
@@ -213,7 +212,7 @@ class WorkSessionService extends ChangeNotifier {
     if (_pendingFetch != null) return await _pendingFetch;
 
     try {
-      _pendingFetch = _fetchFromNetwork(userId);
+      _pendingFetch = _fetchFromNetwork();
       _settingsCache = await _pendingFetch;
       _pendingFetch = null;
       if (_settingsCache != null && _state == PomodoroState.idle) {
@@ -227,8 +226,8 @@ class WorkSessionService extends ChangeNotifier {
     return null;
   }
 
-  Future<PomodoroSettings?> _fetchFromNetwork(String userId) async {
-    final response = await _dio.get('$_basePath/settings/$userId');
+  Future<PomodoroSettings?> _fetchFromNetwork() async {
+    final response = await _dio.get('$_basePath/settings');
     if (response.statusCode == 200) {
       var data = response.data;
       if (data == null || (data is String && data.trim().isEmpty)) {

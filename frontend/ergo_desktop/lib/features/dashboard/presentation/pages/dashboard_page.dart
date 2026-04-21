@@ -5,7 +5,6 @@ import 'package:get_it/get_it.dart';
 import 'package:local_notifier/local_notifier.dart';
 
 import 'package:ergo_desktop/core/theme/app_colors.dart';
-import 'package:ergo_desktop/features/auth/data/services/auth_service.dart';
 import 'package:ergo_desktop/features/dashboard/data/models/posture_models.dart';
 import 'package:ergo_desktop/features/dashboard/data/services/posture_service.dart';
 
@@ -118,12 +117,8 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   void _startMonitoringProcess(PostureReferenceModel posture) async {
-    final userId = await sl<AuthService>().getUserId();
-    if (userId == null) return;
-
     final sessionId = await sl<PostureService>().startSession(
       postureId: posture.id,
-      userId: userId,
       mode: 2,
     );
 
@@ -303,13 +298,11 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _persistPostureProfile(String name, List<double> vector) async {
-    final userId = await sl<AuthService>().getUserId();
-    if (userId == null || !mounted) return;
+    if (!mounted) return;
 
     Navigator.of(context).pop();
 
     final request = CreatePostureRequest(
-      userId: userId,
       alias: name,
       vector: vector,
       isPersistent: true,
@@ -334,10 +327,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _handleStartPomodoro() async {
-    final userId = await sl<AuthService>().getUserId();
-    if (userId != null) {
-      await sl<WorkSessionService>().startWork(userId);
-    }
+    await sl<WorkSessionService>().startWork();
   }
 
   @override

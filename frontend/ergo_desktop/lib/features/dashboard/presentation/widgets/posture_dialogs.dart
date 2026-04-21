@@ -4,7 +4,6 @@ import 'package:get_it/get_it.dart';
 
 import '../../data/services/posture_service.dart';
 import '../../data/models/posture_models.dart';
-import '../../../auth/data/services/auth_service.dart';
 
 final sl = GetIt.instance;
 
@@ -19,8 +18,7 @@ class PostureSelectionDialog extends StatefulWidget {
 
 class _PostureSelectionDialogState extends State<PostureSelectionDialog> {
   final _postureService = sl<PostureService>();
-  final _authService = sl<AuthService>();
-  
+
   List<PostureReferenceModel> _postures = [];
   bool _isLoading = true;
 
@@ -32,17 +30,12 @@ class _PostureSelectionDialogState extends State<PostureSelectionDialog> {
 
   Future<void> _loadPostures() async {
     if (mounted) setState(() => _isLoading = true);
-    final userId = await _authService.getUserId();
-    if (userId != null) {
-      final data = await _postureService.getPostures(userId);
-      if (mounted) {
-        setState(() {
-          _postures = data;
-          _isLoading = false;
-        });
-      }
-    } else {
-      if (mounted) setState(() => _isLoading = false);
+    final data = await _postureService.getPostures();
+    if (mounted) {
+      setState(() {
+        _postures = data;
+        _isLoading = false;
+      });
     }
   }
 
@@ -58,10 +51,10 @@ class _PostureSelectionDialogState extends State<PostureSelectionDialog> {
           children: [
             const Text(
               "SELECCIONAR POSTURA",
-              style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textMain),
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, color: AppColors.textMain),
             ),
             const SizedBox(height: 20),
-            
             if (_isLoading)
               const Padding(
                 padding: EdgeInsets.all(20.0),
@@ -70,13 +63,12 @@ class _PostureSelectionDialogState extends State<PostureSelectionDialog> {
             else if (_postures.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(20.0),
-                child: Text("No hay posturas guardadas", style: TextStyle(color: Colors.grey)),
+                child: Text("No hay posturas guardadas",
+                    style: TextStyle(color: Colors.grey)),
               )
             else
               ..._postures.map((posture) => _buildPostureItem(context, posture)),
-            
             const Divider(height: 30),
-            
             InkWell(
               onTap: widget.onAddNew,
               borderRadius: BorderRadius.circular(10),
@@ -90,7 +82,9 @@ class _PostureSelectionDialogState extends State<PostureSelectionDialog> {
                 child: const Center(
                   child: Text(
                     "+ Añadir nueva",
-                    style: TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        color: AppColors.primaryBlue,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -101,22 +95,25 @@ class _PostureSelectionDialogState extends State<PostureSelectionDialog> {
     );
   }
 
-  Widget _buildPostureItem(BuildContext context, PostureReferenceModel posture) {
+  Widget _buildPostureItem(
+      BuildContext context, PostureReferenceModel posture) {
     return ListTile(
-      title: Text(posture.alias, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textMain)),
+      title: Text(posture.alias,
+          style: const TextStyle(
+              fontWeight: FontWeight.bold, color: AppColors.textMain)),
       trailing: IconButton(
         icon: const Icon(Icons.edit, size: 20, color: Colors.grey),
         onPressed: () {
-          Navigator.pop(context); 
+          Navigator.pop(context);
           showDialog(
             context: context,
             builder: (context) => EditPostureDialog(posture: posture),
-          ).then((_) => _loadPostures()); 
+          ).then((_) => _loadPostures());
         },
       ),
       onTap: () {
         Navigator.pop(context, posture);
-      }, 
+      },
     );
   }
 }
@@ -142,12 +139,9 @@ class _EditPostureDialogState extends State<EditPostureDialog> {
 
   Future<void> _deletePosture() async {
     setState(() => _isDeleting = true);
-    final userId = await sl<AuthService>().getUserId();
-    if (userId != null) {
-      final success = await sl<PostureService>().deletePosture(widget.posture.id, userId);
-      if (success && mounted) {
-        Navigator.pop(context);
-      }
+    final success = await sl<PostureService>().deletePosture(widget.posture.id);
+    if (success && mounted) {
+      Navigator.pop(context);
     }
     if (mounted) setState(() => _isDeleting = false);
   }
@@ -165,40 +159,45 @@ class _EditPostureDialogState extends State<EditPostureDialog> {
           children: [
             const Text(
               "OPCIONES DE POSTURA",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textMain),
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textMain),
             ),
             const SizedBox(height: 20),
-
             const Text(
               "CAMBIAR NOMBRE",
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 0.5),
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textSecondary,
+                  letterSpacing: 0.5),
             ),
             const SizedBox(height: 8),
-
             TextField(
               controller: _textController,
               decoration: InputDecoration(
                 filled: true,
                 fillColor: AppColors.backgroundLight,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[200]!)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!)),
+                enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[200]!)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
               ),
             ),
-            
             const SizedBox(height: 15),
-
             _ActionButtonFull(
               label: "Recalibrar",
               icon: Icons.refresh,
               bgColor: AppColors.primaryBlue.withValues(alpha: 0.08),
               textColor: AppColors.primaryBlue,
-              onTap: () {
-              },
+              onTap: () {},
             ),
-
             const SizedBox(height: 10),
-
             _ActionButtonFull(
               label: _isDeleting ? "Eliminando..." : "Eliminar",
               icon: Icons.delete_outline,
@@ -206,9 +205,7 @@ class _EditPostureDialogState extends State<EditPostureDialog> {
               textColor: Colors.red,
               onTap: _isDeleting ? () {} : _deletePosture,
             ),
-
             const SizedBox(height: 30),
-
             Row(
               children: [
                 Expanded(
@@ -218,9 +215,13 @@ class _EditPostureDialogState extends State<EditPostureDialog> {
                       onPressed: () => Navigator.pop(context),
                       style: TextButton.styleFrom(
                         backgroundColor: AppColors.backgroundLight,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: const Text("Cancelar", style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+                      child: const Text("Cancelar",
+                          style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ),
@@ -234,9 +235,13 @@ class _EditPostureDialogState extends State<EditPostureDialog> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.sidebarBackground,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: const Text("Guardar cambios", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      child: const Text("Guardar cambios",
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ),
@@ -253,7 +258,8 @@ class SavePostureDialog extends StatefulWidget {
   final Function(String name) onSave;
   final VoidCallback onTemporary;
 
-  const SavePostureDialog({super.key, required this.onSave, required this.onTemporary});
+  const SavePostureDialog(
+      {super.key, required this.onSave, required this.onTemporary});
 
   @override
   State<SavePostureDialog> createState() => _SavePostureDialogState();
@@ -272,16 +278,23 @@ class _SavePostureDialogState extends State<SavePostureDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("¡Análisis listo!", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+            const Text("¡Análisis listo!",
+                style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textMain)),
             const SizedBox(height: 10),
-            const Text("Asigna un nombre si deseas guardarla.", style: TextStyle(color: AppColors.textSecondary)),
+            const Text("Asigna un nombre si deseas guardarla.",
+                style: TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 25),
             TextField(
               controller: _nameController,
               decoration: InputDecoration(
                 hintText: "Ej. Oficina Mañana",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
               ),
             ),
             const SizedBox(height: 20),
@@ -290,8 +303,13 @@ class _SavePostureDialogState extends State<SavePostureDialog> {
               height: 50,
               child: ElevatedButton(
                 onPressed: () => widget.onSave(_nameController.text),
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                child: const Text("Guardar postura", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryBlue,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10))),
+                child: const Text("Guardar postura",
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(height: 10),
@@ -300,8 +318,14 @@ class _SavePostureDialogState extends State<SavePostureDialog> {
               height: 50,
               child: TextButton(
                 onPressed: widget.onTemporary,
-                style: TextButton.styleFrom(backgroundColor: Colors.grey[100], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                child: const Text("Usar como temporal", style: TextStyle(color: AppColors.textMain, fontWeight: FontWeight.bold)),
+                style: TextButton.styleFrom(
+                    backgroundColor: Colors.grey[100],
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10))),
+                child: const Text("Usar como temporal",
+                    style: TextStyle(
+                        color: AppColors.textMain,
+                        fontWeight: FontWeight.bold)),
               ),
             ),
           ],
@@ -318,7 +342,12 @@ class _ActionButtonFull extends StatelessWidget {
   final Color textColor;
   final VoidCallback onTap;
 
-  const _ActionButtonFull({required this.label, required this.icon, required this.bgColor, required this.textColor, required this.onTap});
+  const _ActionButtonFull(
+      {required this.label,
+      required this.icon,
+      required this.bgColor,
+      required this.textColor,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -337,7 +366,8 @@ class _ActionButtonFull extends StatelessWidget {
           children: [
             Icon(icon, color: textColor, size: 18),
             const SizedBox(width: 8),
-            Text(label, style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+            Text(label,
+                style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
           ],
         ),
       ),

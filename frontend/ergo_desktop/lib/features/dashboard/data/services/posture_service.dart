@@ -8,9 +8,9 @@ class PostureService {
 
   PostureService(this._dio);
 
-  Future<List<PostureReferenceModel>> getPostures(String userId) async {
+  Future<List<PostureReferenceModel>> getPostures() async {
     try {
-      final response = await _dio.get('/api/work-session/postures/$userId');
+      final response = await _dio.get('/work-session/postures');
       if (response.statusCode == 200) {
         return (response.data as List)
             .map((e) => PostureReferenceModel.fromJson(e))
@@ -25,9 +25,8 @@ class PostureService {
   Future<PostureReferenceModel?> createPosture(CreatePostureRequest request) async {
     try {
       final response = await _dio.post(
-        '/api/work-session/postures',
+        '/work-session/postures',
         data: request.toJson(),
-        options: Options(headers: {"X-User-Id": request.userId}),
       );
 
       if (response.statusCode == 200) {
@@ -39,11 +38,10 @@ class PostureService {
     return null;
   }
 
-  Future<bool> deletePosture(String postureId, String userId) async {
+  Future<bool> deletePosture(String postureId) async {
     try {
       final response = await _dio.delete(
-        '/api/work-session/postures/$postureId',
-        options: Options(headers: {"X-User-Id": userId}),
+        '/work-session/postures/$postureId',
       );
       return response.statusCode == 204;
     } catch (e, stackTrace) {
@@ -62,7 +60,7 @@ class PostureService {
         ));
       }
       final response = await _dio.post(
-        '/api/work-session/calibration/calculate',
+        '/work-session/calibration/calculate',
         data: formData,
       );
 
@@ -78,12 +76,11 @@ class PostureService {
 
   Future<String?> startSession(
       {required String postureId,
-      required String userId,
       required int mode}) async {
     try {
       final response = await _dio.post(
-        '/api/work-session/session/start',
-        data: {"postureId": postureId, "userId": userId, "mode": mode},
+        '/work-session/session/start',
+        data: {"postureId": postureId, "mode": mode},
       );
       if (response.statusCode == 200) {
         return response.data['sessionId'] as String;
@@ -101,7 +98,7 @@ class PostureService {
       });
 
       final response = await _dio.post(
-        '/api/work-session/session/$sessionId/monitor',
+        '/work-session/session/$sessionId/monitor',
         data: formData,
       );
 

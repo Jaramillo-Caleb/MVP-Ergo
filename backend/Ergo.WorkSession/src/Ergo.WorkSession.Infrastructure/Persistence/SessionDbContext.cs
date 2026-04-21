@@ -1,4 +1,4 @@
-﻿using Ergo.WorkSession.Domain.Entities;
+using Ergo.WorkSession.Domain.Entities;
 using Ergo.WorkSession.Domain.Enums; 
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -7,6 +7,7 @@ namespace Ergo.WorkSession.Infrastructure.Persistence
 {
     public class SessionDbContext : DbContext
     {
+        public DbSet<User> Users { get; set; }
         public DbSet<Domain.Entities.WorkSession> WorkSessions { get; set; }
         public DbSet<PostureEvent> PostureEvents { get; set; }
         public DbSet<ReferencePose> ReferencePoses { get; set; }
@@ -17,6 +18,24 @@ namespace Ergo.WorkSession.Infrastructure.Persistence
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<User>(entity =>
+            {
+                entity.ToTable("Users");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Email).IsRequired();
+                entity.Property(e => e.FullName).IsRequired();
+                entity.Property(e => e.BirthDate).IsRequired();
+                entity.Property(e => e.Gender).HasMaxLength(50);
+                entity.Property(e => e.Location).HasMaxLength(200);
+                entity.Property(e => e.Occupation).HasMaxLength(200);
+                entity.Property(e => e.AvatarPath).HasMaxLength(500);
+                entity.Property(e => e.CreatedAt).IsRequired();
+                
+                entity.HasMany(e => e.WorkSessions)
+                      .WithOne(w => w.User)
+                      .HasForeignKey(w => w.UserId);
+            });
 
             modelBuilder.Entity<PomodoroSettings>(entity =>
             {

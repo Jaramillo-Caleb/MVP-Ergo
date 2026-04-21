@@ -14,14 +14,12 @@ enum PomodoroState {
 }
 
 class PomodoroSettings {
-  final String userId;
   final int workDuration;
   final int breakDuration;
   final bool autoStart;
   final int repetitions;
 
   PomodoroSettings({
-    required this.userId,
     this.workDuration = 25,
     this.breakDuration = 5,
     this.autoStart = false,
@@ -30,7 +28,6 @@ class PomodoroSettings {
 
   Map<String, dynamic> toJson() {
     return {
-      'userId': userId,
       'workDuration': workDuration,
       'breakDuration': breakDuration,
       'autoStart': autoStart,
@@ -40,11 +37,10 @@ class PomodoroSettings {
 
   factory PomodoroSettings.fromJson(Map<String, dynamic> json) {
     return PomodoroSettings(
-      userId: json['userId'],
-      workDuration: json['workDuration'],
-      breakDuration: json['breakDuration'],
-      autoStart: json['autoStart'],
-      repetitions: json['repetitions'],
+      workDuration: json['workDuration'] ?? 25,
+      breakDuration: json['breakDuration'] ?? 5,
+      autoStart: json['autoStart'] ?? false,
+      repetitions: json['repetitions'] ?? 1,
     );
   }
 
@@ -55,7 +51,6 @@ class PomodoroSettings {
     int? repetitions,
   }) {
     return PomodoroSettings(
-      userId: userId,
       workDuration: workDuration ?? this.workDuration,
       breakDuration: breakDuration ?? this.breakDuration,
       autoStart: autoStart ?? this.autoStart,
@@ -65,14 +60,12 @@ class PomodoroSettings {
 }
 
 class StartSessionRequest {
-  final String userId;
   final int mode; 
   final int durationMinutes;
   final String? postureId;
   final List<double>? temporaryVector;
 
   StartSessionRequest({
-    required this.userId,
     required this.mode,
     required this.durationMinutes,
     this.postureId,
@@ -81,7 +74,6 @@ class StartSessionRequest {
 
   Map<String, dynamic> toJson() {
     return {
-      'userId': userId,
       'mode': mode,
       'durationMinutes': durationMinutes,
       'postureId': postureId,

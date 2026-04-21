@@ -22,20 +22,17 @@ class PostureReferenceModel {
 }
 
 class CreatePostureRequest {
-  final String userId;
   final String alias;
   final List<double> vector;
   final bool isPersistent;
 
   CreatePostureRequest({
-    required this.userId,
     required this.alias,
     required this.vector,
     required this.isPersistent,
   });
 
   Map<String, dynamic> toJson() => {
-        "userId": userId,
         "alias": alias,
         "vector": vector,
         "isPersistent": isPersistent,

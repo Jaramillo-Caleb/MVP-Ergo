@@ -6,49 +6,16 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using SQLitePCL;
-using System.IO; 
-using Microsoft.AspNetCore.DataProtection; 
+using System.IO;
 
 var builder = WebApplication.CreateBuilder(args);
 
-string dbPath;
-string dbPassword;
+var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+var ergoDataPath = Path.Combine(localAppData, "ErgoProject", "Database");
+if (!Directory.Exists(ergoDataPath)) Directory.CreateDirectory(ergoDataPath);
+var dbPath = Path.Combine(ergoDataPath, "ergo_local.db");
 
-if (Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true")
-{
-    var dbFolder = "/app/data";
-    if (!Directory.Exists(dbFolder)) Directory.CreateDirectory(dbFolder);
-
-    dbPath = "/app/data/Session.db";
-    dbPassword = builder.Configuration["DB_PASSWORD"];
-}
-else
-{
-    var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-    var ergoDataPath = Path.Combine(localAppData, "ErgoProject", "Database");
-    
-    if (!Directory.Exists(ergoDataPath)) Directory.CreateDirectory(ergoDataPath);
-    
-    dbPath = Path.Combine(ergoDataPath, "Session.db");
-
-    var dataProtectionPath = Path.Combine(localAppData, "ErgoProject", "Keys");
-    var dp = DataProtectionProvider.Create(new DirectoryInfo(dataProtectionPath));
-    var protector = dp.CreateProtector("WorkSessionProtector");
-
-    var keyFilePath = Path.Combine(ergoDataPath, "session_db.key");
-
-    if (File.Exists(keyFilePath))
-    {
-        dbPassword = protector.Unprotect(File.ReadAllText(keyFilePath));
-    }
-    else
-    {
-        dbPassword = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
-        File.WriteAllText(keyFilePath, protector.Protect(dbPassword));
-    }
-}
-
-builder.Configuration["ConnectionStrings:DefaultConnection"] = $"Data Source={dbPath};Password={dbPassword};";
+builder.Configuration["ConnectionStrings:DefaultConnection"] = $"Data Source={dbPath};";
 
 Batteries_V2.Init();
 
@@ -64,6 +31,17 @@ builder.Services.Configure<FormOptions>(options =>
     options.ValueLengthLimit = int.MaxValue;
     options.MultipartBodyLengthLimit = MaxFileSize;
     options.MultipartHeadersLengthLimit = int.MaxValue;
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyHeader()
+              .AllowAnyMethod()
+              .SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost")
+              .AllowCredentials();
+    });
 });
 
 builder.Services.AddApplicationLayer();
@@ -82,10 +60,10 @@ using (var scope = app.Services.CreateScope())
         var dbContext = services.GetRequiredService<SessionDbContext>();
         dbContext.Database.Migrate();
     }
-    catch(Exception exepcion)
+    catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(exepcion, "Ocurrió un error al migrar o crear la base de datos SQLCipher.");
+        logger.LogError(ex, "Error migrating database.");
     }
 }
 
@@ -95,6 +73,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseAuthorization();
+app.UseCors();
+
 app.MapSessionEndpoints();
+app.MapUserEndpoints();
 app.Run();
