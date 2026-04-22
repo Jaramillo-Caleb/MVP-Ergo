@@ -17,9 +17,22 @@ class DateInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
       TextEditingValue oldValue, TextEditingValue newValue) {
-    if (newValue.text.length > 10) return oldValue;
-    var text = newValue.text.replaceAll('/', '');
+    String text = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (oldValue.text.length >= 10 && newValue.text.length > oldValue.text.length) {
+      final base = oldValue.selection.baseOffset;
+      final extent = newValue.selection.extentOffset;
+      if (extent > base && base >= 0) {
+        final inserted = newValue.text.substring(base, extent);
+        final newDigits = inserted.replaceAll(RegExp(r'[^0-9]'), '');
+        if (newDigits.isNotEmpty) {
+          text = newDigits;
+        }
+      }
+    }
+
     if (text.length > 8) text = text.substring(0, 8);
+
     var buffer = StringBuffer();
     for (int i = 0; i < text.length; i++) {
       buffer.write(text[i]);
@@ -27,8 +40,10 @@ class DateInputFormatter extends TextInputFormatter {
         buffer.write('/');
       }
     }
+
     var string = buffer.toString();
-    return newValue.copyWith(
+
+    return TextEditingValue(
         text: string,
         selection: TextSelection.collapsed(offset: string.length));
   }
@@ -218,14 +233,17 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                               controller: _birthDateController,
                               keyboardType: TextInputType.number,
                               inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
                                 DateInputFormatter(),
                               ],
                               decoration: _inputDecorationWithIcon(
-                                  "DD/MM/YYYY", Icons.calendar_today, () => _selectDate(context)),
+                                  "DD/MM/YYYY",
+                                  Icons.calendar_today,
+                                  () => _selectDate(context)),
                               validator: (v) {
                                 if (v == null || v.isEmpty) return "Requerido";
-                                if (_parseDateToIso(v) == null) return "Fecha inválida";
+                                if (_parseDateToIso(v) == null) {
+                                  return "Fecha inválida";
+                                }
                                 return null;
                               },
                             ),
@@ -260,7 +278,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     );
   }
 
-  InputDecoration _inputDecorationWithIcon(String hint, IconData icon, VoidCallback onTap) {
+  InputDecoration _inputDecorationWithIcon(
+      String hint, IconData icon, VoidCallback onTap) {
     return InputDecoration(
       hintText: hint,
       hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
