@@ -1,6 +1,0 @@
-@Ergo.WorkSession.API_HostAddress = http://localhost:5276
-
-GET {{Ergo.WorkSession.API_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
