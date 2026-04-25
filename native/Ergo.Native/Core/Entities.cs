@@ -6,12 +6,15 @@ namespace Ergo.Native.Core;
 public struct CalculationResult
 {
     public double Score;
+
+    [MarshalAs(UnmanagedType.U1)] 
     public bool IsAlert;
+
     public IntPtr MessagePtr; 
 }
 
 [StructLayout(LayoutKind.Sequential)]
 public struct BodyVector
 {
-    public unsafe fixed double Data[15]; // 5 puntos * (x, y, z)
+    public unsafe fixed double Data[15]; 
 }

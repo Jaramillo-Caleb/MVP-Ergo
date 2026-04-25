@@ -1,28 +1,21 @@
 import 'dart:io';
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:drift/drift.dart';
+import '../../../../core/database/app_database.dart';
 
 class ProfileService {
-  final Dio _dio;
+  final AppDatabase _db;
 
-  ProfileService(this._dio);
+  ProfileService({required AppDatabase db}) : _db = db;
 
-  Future<Map<String, dynamic>?> getProfile() async {
+  Future<User?> getProfile() async {
     try {
-      final response = await _dio.get('/users/me');
-
-      if (response.statusCode == 200) {
-        return response.data as Map<String, dynamic>;
-      }
-      return null;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        debugPrint("Usuario no encontrado (404).");
-      } else {
-        debugPrint("Error al obtener perfil: ${e.response?.data}");
-      }
+      final query = _db.select(_db.users)..limit(1);
+      return await query.getSingleOrNull();
+    } catch (e) {
+      debugPrint("Error al obtener perfil local: $e");
       return null;
     }
   }
@@ -42,12 +35,10 @@ class ProfileService {
           p.join(profileImagesDir.path, 'profile_current$extension');
       final newFile = File(newPath);
 
-      // Remove old files to keep directory clean
       if (await newFile.exists()) {
         await newFile.delete();
       }
 
-      // If there's an existing one with different extension (rare but possible), clear it
       await for (final file in profileImagesDir.list()) {
         if (file is File) await file.delete();
       }
@@ -76,29 +67,23 @@ class ProfileService {
         localImagePath = await _persistImageLocally(imagePath);
       }
 
-      FormData formData = FormData.fromMap({
-        "FullName": fullName,
-        "BirthDate": birthDate,
-        "Gender": gender,
-        "Location": location,
-        "Occupation": occupation
-      });
-
-      if (localImagePath != null && localImagePath.isNotEmpty) {
-        formData.files.add(MapEntry(
-          "AvatarFile",
-          await MultipartFile.fromFile(localImagePath,
-              filename: p.basename(localImagePath)),
-        ));
-      }
-
-      final response = await _dio.post(
-        '/users/profile',
-        data: formData,
+      final entry = UsersCompanion(
+        id: const Value('me'),
+        fullName: Value(fullName),
+        email: const Value('user@local'), // Default for local profile
+        birthDate: Value(DateTime.tryParse(birthDate) ?? DateTime.now()),
+        gender: Value(gender),
+        location: Value(location),
+        occupation: Value(occupation),
+        avatarPath: Value(localImagePath),
+        createdAt: Value(DateTime.now()),
       );
-      return response.statusCode == 200;
-    } on DioException catch (e) {
-      debugPrint("Error al actualizar perfil: ${e.response?.data}");
+
+      await _db.into(_db.users).insertOnConflictUpdate(entry);
+
+      return true;
+    } catch (e) {
+      debugPrint("Error al actualizar perfil local: $e");
       return false;
     }
   }

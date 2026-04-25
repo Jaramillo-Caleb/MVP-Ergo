@@ -38,3 +38,41 @@ target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)
+
+# Se define la ruta de la DLL 
+set(ERGO_NATIVE_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../native/Ergo.Native/bin/Release/net9.0/win-x64/native/Ergo.Native.dll")
+
+# 2. Comando para copiar la DLL automáticamente después de compilar
+add_custom_command(
+    TARGET ${BINARY_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${ERGO_NATIVE_DLL_PATH}"
+    "$<TARGET_FILE_DIR:${BINARY_NAME}>/Ergo.Native.dll"
+    COMMENT "Copiando Ergo.Native.dll al directorio de ejecucion..."
+)
+
+# Copiar el modelo ONNX 
+set(ERGO_MODEL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../assets/models/pose_landmark_lite.onnx")
+
+add_custom_command(
+    TARGET ${BINARY_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${ERGO_MODEL_PATH}"
+    "$<TARGET_FILE_DIR:${BINARY_NAME}>/pose_landmark_lite.onnx"
+    COMMENT "Copiando modelo ONNX al directorio de ejecucion..."
+)
+
+# Copiar las DLLs de SQLCipher al directorio de salida
+set(SQLCIPHER_DLLS 
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../sqlcipher.dll"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../libcrypto-1_1-x64.dll" 
+)
+
+foreach(dll ${SQLCIPHER_DLLS})
+    add_custom_command(
+        TARGET ${BINARY_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${dll}"
+        "$<TARGET_FILE_DIR:${BINARY_NAME}>"
+    )
+endforeach()

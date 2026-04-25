@@ -11,6 +11,7 @@ import 'package:ergo_desktop/features/profile/data/services/profile_service.dart
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await localNotifier.setup(appName: 'ERGO');
   await di.init();
 

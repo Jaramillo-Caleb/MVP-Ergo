@@ -1,45 +1,42 @@
 import 'dart:async';
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:drift/drift.dart' hide Column;
 import '../models/work_session_model.dart';
 import '../../../dashboard/data/services/notification_service.dart';
-import 'dart:convert';
+import '../../../../core/database/app_database.dart';
+import 'package:uuid/uuid.dart';
 
 class WorkSessionService extends ChangeNotifier {
-  final Dio _dio;
+  final AppDatabase _db;
   final NotificationService _notificationService;
-  final String _basePath = '/api/work-session';
+  final _uuid = const Uuid();
 
-  // Cache para los settings y estadísticas locales
   PomodoroSettings? _settingsCache;
-  Future<PomodoroSettings?>? _pendingFetch;
 
-  // Estadísticas locales temporales (mientras no se cierre la app)
   int totalWorkSeconds = 0;
   int totalBreakSeconds = 0;
 
-  // Estado del Pomodoro persistente
   Timer? _timer;
   PomodoroState _state = PomodoroState.idle;
   int _secondsRemaining = 0;
   int _currentRepetition = 1;
   String? _currentSessionId;
 
-  // Getters para el estado
   PomodoroState get state => _state;
   int get secondsRemaining => _secondsRemaining;
   int get currentRepetition => _currentRepetition;
   String? get currentSessionId => _currentSessionId;
   PomodoroSettings? get settings => _settingsCache;
 
-  WorkSessionService(this._dio, this._notificationService);
+  WorkSessionService({
+    required AppDatabase db,
+    required NotificationService notificationService,
+  })  : _db = db,
+        _notificationService = notificationService;
 
-  /// Permite cargar los settings de forma anticipada (ej. al inicio de la app)
   Future<void> prefetchSettings() async {
-    if (_settingsCache != null || _pendingFetch != null) return;
-    _pendingFetch = getSettings();
-    _settingsCache = await _pendingFetch;
-    _pendingFetch = null;
+    if (_settingsCache != null) return;
+    _settingsCache = await getSettings();
     if (_settingsCache != null && _state == PomodoroState.idle) {
       _secondsRemaining = _settingsCache!.workDuration * 60;
     }
@@ -67,8 +64,9 @@ class WorkSessionService extends ChangeNotifier {
   void _onCycleComplete() {
     _timer?.cancel();
     if (_state == PomodoroState.working) {
-      final isLastRepetition = _currentRepetition >= (_settingsCache?.repetitions ?? 1);
-      
+      final isLastRepetition =
+          _currentRepetition >= (_settingsCache?.repetitions ?? 1);
+
       _notificationService.showNotification(
         title: "¡Trabajo terminado!",
         body: ((_settingsCache?.autoStart ?? false) && isLastRepetition)
@@ -92,7 +90,8 @@ class WorkSessionService extends ChangeNotifier {
         body: "A trabajar.",
       );
 
-      if ((_settingsCache?.autoStart ?? false) && _currentRepetition < (_settingsCache?.repetitions ?? 1)) {
+      if ((_settingsCache?.autoStart ?? false) &&
+          _currentRepetition < (_settingsCache?.repetitions ?? 1)) {
         _currentRepetition++;
         startWork();
       } else {
@@ -105,32 +104,28 @@ class WorkSessionService extends ChangeNotifier {
     if (_settingsCache == null) await getSettings();
     if (_settingsCache == null) return;
 
-    final request = {
-      "mode": 0, // Pomodoro Only
-      "durationMinutes": _settingsCache!.workDuration,
-    };
+    _currentSessionId = _uuid.v4();
 
-    try {
-      final response = await _dio.post(
-        '$_basePath/session/start',
-        data: request,
-      );
-      if (response.statusCode == 200) {
-        final session = WorkSessionDto.fromJson(response.data);
-        _currentSessionId = session.sessionId;
-        _state = PomodoroState.working;
-        _secondsRemaining = _settingsCache!.workDuration * 60;
-        _startTimer();
-        notifyListeners();
-      }
-    } on DioException catch (e) {
-      debugPrint("Error al iniciar sesión: ${e.response?.data ?? e.message}");
-    }
+    final entry = WorkSessionsCompanion(
+      id: Value(_currentSessionId!),
+      startTime: Value(DateTime.now()),
+      mode: const Value(1), // Assuming 1 is Pomodoro index
+      scoreAverage: const Value(0.0),
+    );
+
+    await _db.into(_db.workSessions).insert(entry);
+
+    _state = PomodoroState.working;
+    _secondsRemaining = _settingsCache!.workDuration * 60;
+    _startTimer();
+    notifyListeners();
   }
 
   void startBreak() {
     if (_settingsCache == null) return;
-    _state = PomodoroState.breaking;
+    _state = _state == PomodoroState.workPaused || _state == PomodoroState.working || _state == PomodoroState.workFinished
+        ? PomodoroState.breaking
+        : _state;
     _secondsRemaining = _settingsCache!.breakDuration * 60;
     _startTimer();
     notifyListeners();
@@ -138,44 +133,23 @@ class WorkSessionService extends ChangeNotifier {
 
   Future<void> pauseSession() async {
     if (_currentSessionId == null) return;
-    try {
-      final response = await _dio.post('$_basePath/session/$_currentSessionId/pause');
-      if (response.statusCode == 200) {
-        _timer?.cancel();
-        _state = _state == PomodoroState.working
-            ? PomodoroState.workPaused
-            : PomodoroState.breakPaused;
-        notifyListeners();
-      }
-    } on DioException catch (e) {
-      debugPrint("Error al pausar sesión: ${e.response?.data ?? e.message}");
-    }
+    _timer?.cancel();
+    _state = _state == PomodoroState.working
+        ? PomodoroState.workPaused
+        : PomodoroState.breakPaused;
+    notifyListeners();
   }
 
   Future<void> resumeSession() async {
     if (_currentSessionId == null) return;
-    try {
-      final response = await _dio.post('$_basePath/session/$_currentSessionId/resume');
-      if (response.statusCode == 200) {
-        _state = _state == PomodoroState.workPaused
-            ? PomodoroState.working
-            : PomodoroState.breaking;
-        _startTimer();
-        notifyListeners();
-      }
-    } on DioException catch (e) {
-      debugPrint("Error al reanudar sesión: ${e.response?.data ?? e.message}");
-    }
+    _state = _state == PomodoroState.workPaused
+        ? PomodoroState.working
+        : PomodoroState.breaking;
+    _startTimer();
+    notifyListeners();
   }
 
   Future<void> stopSession() async {
-    if (_currentSessionId != null) {
-      try {
-        await _dio.post('$_basePath/session/$_currentSessionId/stop');
-      } on DioException catch (e) {
-        debugPrint("Error al detener sesión: ${e.response?.data ?? e.message}");
-      }
-    }
     _timer?.cancel();
     _state = PomodoroState.idle;
     _currentSessionId = null;
@@ -187,8 +161,8 @@ class WorkSessionService extends ChangeNotifier {
   }
 
   void resetDefaults() {
-    if (_settingsCache == null) return;
-    _settingsCache = _settingsCache!.copyWith(
+    _settingsCache = PomodoroSettings(
+      userId: 'me',
       workDuration: 25,
       breakDuration: 5,
       autoStart: false,
@@ -203,60 +177,65 @@ class WorkSessionService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Persistencia de configuración
   Future<PomodoroSettings?> getSettings() async {
-    // Si ya tenemos cache, lo devolvemos inmediatamente
     if (_settingsCache != null) return _settingsCache;
 
-    // Si hay una petición en curso, esperamos a esa misma
-    if (_pendingFetch != null) return await _pendingFetch;
-
     try {
-      _pendingFetch = _fetchFromNetwork();
-      _settingsCache = await _pendingFetch;
-      _pendingFetch = null;
-      if (_settingsCache != null && _state == PomodoroState.idle) {
-        _secondsRemaining = _settingsCache!.workDuration * 60;
-      }
-      return _settingsCache;
-    } catch (e) {
-      _pendingFetch = null;
-      debugPrint("Error al obtener settings: $e");
-    }
-    return null;
-  }
+      final row = await (_db.select(_db.settings)..where((t) => t.userId.equals('me'))).getSingleOrNull();
 
-  Future<PomodoroSettings?> _fetchFromNetwork() async {
-    final response = await _dio.get('$_basePath/settings');
-    if (response.statusCode == 200) {
-      var data = response.data;
-      if (data == null || (data is String && data.trim().isEmpty)) {
-        return null;
+      if (row != null) {
+        _settingsCache = PomodoroSettings(
+          userId: row.userId,
+          workDuration: row.workDuration,
+          breakDuration: row.breakDuration,
+          autoStart: row.autoStart,
+          repetitions: row.repetitions,
+        );
+      } else {
+        _settingsCache = const PomodoroSettings(
+          userId: 'me',
+          workDuration: 25,
+          breakDuration: 5,
+          autoStart: false,
+          repetitions: 1,
+        );
       }
-      if (data is String) {
-        data = jsonDecode(data);
-      }
-      return PomodoroSettings.fromJson(data);
+    } catch (e) {
+      debugPrint("Error loading settings: $e");
+      _settingsCache = const PomodoroSettings(
+        userId: 'me',
+        workDuration: 25,
+        breakDuration: 5,
+        autoStart: false,
+        repetitions: 1,
+      );
     }
-    return null;
+    return _settingsCache;
   }
 
   Future<void> updateSettings(PomodoroSettings settings) async {
-    _settingsCache = settings; // Actualizamos cache local inmediatamente
+    _settingsCache = settings;
+    try {
+      final entry = SettingsCompanion(
+        userId: Value(settings.userId),
+        workDuration: Value(settings.workDuration),
+        breakDuration: Value(settings.breakDuration),
+        autoStart: Value(settings.autoStart),
+        repetitions: Value(settings.repetitions),
+      );
+      await _db.into(_db.settings).insertOnConflictUpdate(entry);
+    } catch (e) {
+      debugPrint("Error saving settings: $e");
+    }
+
     if (_state == PomodoroState.idle) {
       _secondsRemaining = settings.workDuration * 60;
     }
     notifyListeners();
-    try {
-      await _dio.post('$_basePath/settings', data: settings.toJson());
-    } on DioException catch (e) {
-      debugPrint("Error al actualizar settings: ${e.message}");
-    }
   }
 
   void clearCache() {
     _settingsCache = null;
-    _pendingFetch = null;
     _timer?.cancel();
     _state = PomodoroState.idle;
     _currentSessionId = null;

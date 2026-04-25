@@ -49,17 +49,15 @@ class _SettingsPageState extends State<SettingsPage> {
     final settings = await sessionService.getSettings() ?? PomodoroSettings();
 
     if (profile != null) {
-      _nameController.text = profile['fullName'] ?? '';
-      _locationController.text = profile['location'] ?? '';
-      _occupationController.text = profile['occupation'] ?? '';
-      _selectedGender = profile['gender'];
-      _avatarPath = profile['avatarPath'];
+      _nameController.text = profile.fullName;
+      _locationController.text = profile.location ?? '';
+      _occupationController.text = profile.occupation ?? '';
+      _selectedGender = profile.gender;
+      _avatarPath = profile.avatarPath;
 
-      if (profile['birthDate'] != null) {
-        final date = DateTime.parse(profile['birthDate']);
-        _birthDateController.text =
-            "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}";
-      }
+      final date = profile.birthDate;
+      _birthDateController.text =
+          "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}";
     }
 
     _workDurationController.text = settings.workDuration.toString();

@@ -14,43 +14,49 @@ enum PomodoroState {
 }
 
 class PomodoroSettings {
+  final String userId;
   final int workDuration;
   final int breakDuration;
   final bool autoStart;
   final int repetitions;
 
-  PomodoroSettings({
+  const PomodoroSettings({
+    this.userId = 'me',
     this.workDuration = 25,
     this.breakDuration = 5,
     this.autoStart = false,
     this.repetitions = 1,
   });
 
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toMap() {
     return {
-      'workDuration': workDuration,
-      'breakDuration': breakDuration,
-      'autoStart': autoStart,
+      'user_id': userId,
+      'work_duration': workDuration,
+      'break_duration': breakDuration,
+      'auto_start': autoStart ? 1 : 0,
       'repetitions': repetitions,
     };
   }
 
-  factory PomodoroSettings.fromJson(Map<String, dynamic> json) {
+  factory PomodoroSettings.fromMap(Map<String, dynamic> map) {
     return PomodoroSettings(
-      workDuration: json['workDuration'] ?? 25,
-      breakDuration: json['breakDuration'] ?? 5,
-      autoStart: json['autoStart'] ?? false,
-      repetitions: json['repetitions'] ?? 1,
+      userId: map['user_id'] ?? 'me',
+      workDuration: map['work_duration'] ?? 25,
+      breakDuration: map['break_duration'] ?? 5,
+      autoStart: (map['auto_start'] ?? 0) == 1,
+      repetitions: map['repetitions'] ?? 1,
     );
   }
 
   PomodoroSettings copyWith({
+    String? userId,
     int? workDuration,
     int? breakDuration,
     bool? autoStart,
     int? repetitions,
   }) {
     return PomodoroSettings(
+      userId: userId ?? this.userId,
       workDuration: workDuration ?? this.workDuration,
       breakDuration: breakDuration ?? this.breakDuration,
       autoStart: autoStart ?? this.autoStart,

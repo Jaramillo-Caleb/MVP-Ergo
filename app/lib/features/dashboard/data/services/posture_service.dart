@@ -1,113 +1,86 @@
-import 'package:dio/dio.dart';
 import '../models/posture_models.dart';
 import 'package:logger/logger.dart';
+import 'package:drift/drift.dart';
+import '../../../../core/database/app_database.dart';
+import '../../../../core/native/native_bridge.dart';
+import 'package:uuid/uuid.dart';
 
 class PostureService {
-  final Dio _dio;
+  final AppDatabase _db;
+  final NativeBridge _bridge;
   final logger = Logger();
+  final _uuid = const Uuid();
 
-  PostureService(this._dio);
+  PostureService({required AppDatabase db, required NativeBridge bridge})
+      : _db = db,
+        _bridge = bridge;
 
   Future<List<PostureReferenceModel>> getPostures() async {
     try {
-      final response = await _dio.get('/work-session/postures');
-      if (response.statusCode == 200) {
-        return (response.data as List)
-            .map((e) => PostureReferenceModel.fromJson(e))
-            .toList();
-      }
+      final rows = await _db.select(_db.referencePoses).get();
+
+      return rows.map((e) {
+        return PostureReferenceModel(
+          id: e.id,
+          alias: e.alias,
+          isPersistent: e.isPersistent,
+          createdAt: e.createdAt,
+        );
+      }).toList();
     } catch (e, stackTrace) {
-      logger.e("Error fetching postures", error: e, stackTrace: stackTrace);
+      logger.e("Error fetching local postures", error: e, stackTrace: stackTrace);
     }
     return [];
   }
 
-  Future<PostureReferenceModel?> createPosture(CreatePostureRequest request) async {
+  Future<PostureReferenceModel?> createPosture(String alias, List<double> vector) async {
     try {
-      final response = await _dio.post(
-        '/work-session/postures',
-        data: request.toJson(),
+      final id = _uuid.v4();
+      final vectorStr = vector.join(',');
+      final now = DateTime.now();
+
+      final entry = ReferencePosesCompanion(
+        id: Value(id),
+        alias: Value(alias),
+        vector: Value(vectorStr),
+        isPersistent: const Value(true),
+        createdAt: Value(now),
       );
 
-      if (response.statusCode == 200) {
-        return PostureReferenceModel.fromJson(response.data);
-      }
+      await _db.into(_db.referencePoses).insert(entry);
+      
+      return PostureReferenceModel(
+        id: id,
+        alias: alias,
+        isPersistent: true,
+        createdAt: now,
+      );
     } catch (e, stackTrace) {
-      logger.e("Error creating posture", error: e, stackTrace: stackTrace);
+      logger.e("Error creating local posture", error: e, stackTrace: stackTrace);
     }
     return null;
   }
 
   Future<bool> deletePosture(String postureId) async {
     try {
-      final response = await _dio.delete(
-        '/work-session/postures/$postureId',
-      );
-      return response.statusCode == 204;
+      final count = await (_db.delete(_db.referencePoses)..where((t) => t.id.equals(postureId))).go();
+      return count > 0;
     } catch (e, stackTrace) {
-      logger.e("Error deleting posture", error: e, stackTrace: stackTrace);
+      logger.e("Error deleting local posture", error: e, stackTrace: stackTrace);
       return false;
     }
   }
 
-  Future<List<double>?> computeCalibration(List<List<int>> imagesBytes) async {
-    try {
-      final formData = FormData();
-      for (var i = 0; i < imagesBytes.length; i++) {
-        formData.files.add(MapEntry(
-          'images',
-          MultipartFile.fromBytes(imagesBytes[i], filename: 'frame_$i.jpg'),
-        ));
-      }
-      final response = await _dio.post(
-        '/work-session/calibration/calculate',
-        data: formData,
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> vector = response.data['vector'];
-        return vector.map((e) => (e as num).toDouble()).toList();
-      }
-    } catch (e) {
-      logger.e("Error en computeCalibration", error: e);
-    }
-    return null;
+  Future<List<double>?> computeCalibration(List<Uint8List> imagesBytes) async {
+    return null; 
   }
 
-  Future<String?> startSession(
-      {required String postureId,
-      required int mode}) async {
+  Future<bool?> monitorPosture(List<double> referenceVector, List<int> frame) async {
     try {
-      final response = await _dio.post(
-        '/work-session/session/start',
-        data: {"postureId": postureId, "mode": mode},
-      );
-      if (response.statusCode == 200) {
-        return response.data['sessionId'] as String;
-      }
-    } on DioException catch (e) {
-      logger.e("Error 400 - Backend rechazó la solicitud: ${e.response?.data}");
-    }
-    return null;
-  }
-
-  Future<bool?> monitorPosture(String sessionId, List<int> imageBytes) async {
-    try {
-      final formData = FormData.fromMap({
-        'image': MultipartFile.fromBytes(imageBytes, filename: 'frame.jpg'),
-      });
-
-      final response = await _dio.post(
-        '/work-session/session/$sessionId/monitor',
-        data: formData,
-      );
-
-      if (response.statusCode == 200) {
-        final bool isAlert = response.data['isAlert'] ?? false;
-        return !isAlert;
-      }
+      final result = _bridge.processFrame(referenceVector, frame);
+      return !result.$2; 
     } catch (e) {
-      logger.e("Error en el Heartbeat de monitoreo", error: e);
+      logger.e("Error en monitoreo nativo", error: e);
     }
     return null;
   }

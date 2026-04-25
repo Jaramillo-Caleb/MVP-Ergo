@@ -89,11 +89,11 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
+            VALUE "CompanyName", "Ergo" "\0"
             VALUE "FileDescription", "ergo_desktop" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "ergo_desktop" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Ergo. All rights reserved." "\0"
             VALUE "OriginalFilename", "ergo_desktop.exe" "\0"
             VALUE "ProductName", "ergo_desktop" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

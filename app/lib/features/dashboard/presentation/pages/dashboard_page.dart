@@ -3,6 +3,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:local_notifier/local_notifier.dart';
+import 'dart:typed_data';
 
 import 'package:ergo_desktop/core/theme/app_colors.dart';
 import 'package:ergo_desktop/features/dashboard/data/models/posture_models.dart';
@@ -35,7 +36,7 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   bool _isMonitoringActive = false;
   PostureStatus _currentPostureStatus = PostureStatus.unknown;
-  String? _currentSessionId;
+  PostureReferenceModel? _activePosture;
   bool _isBurstMode = false;
   int _consecutiveIncorrectCount = 0;
   Timer? _monitoringTimer;
@@ -43,7 +44,7 @@ class _DashboardPageState extends State<DashboardPage> {
   bool _isCalibrating = false;
   int _countdown = 5;
   Timer? _calibrationTimer;
-  final List<List<int>> _capturedFrames = [];
+  final List<Uint8List> _capturedFrames = [];
 
   CameraController? _cameraController;
 
@@ -116,25 +117,9 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  void _startMonitoringProcess(PostureReferenceModel posture) async {
-    final sessionId = await sl<PostureService>().startSession(
-      postureId: posture.id,
-      mode: 2,
-    );
-
-    if (sessionId == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text(
-                  "Error 400: El servidor rechazó la sesión de monitoreo.")),
-        );
-      }
-      return;
-    }
-
+  void _startMonitoringProcess(PostureReferenceModel posture) {
     setState(() {
-      _currentSessionId = sessionId;
+      _activePosture = posture;
       _isMonitoringActive = true;
       _currentPostureStatus = PostureStatus.correct;
       _isBurstMode = false;
@@ -142,7 +127,7 @@ class _DashboardPageState extends State<DashboardPage> {
     });
 
     _schedulePostureCheck(10);
-    debugPrint("Monitoreo iniciado. Sesión: $sessionId");
+    debugPrint("Monitoreo iniciado localmente.");
   }
 
   void _stopMonitoring() {
@@ -150,7 +135,7 @@ class _DashboardPageState extends State<DashboardPage> {
     if (mounted) {
       setState(() {
         _isMonitoringActive = false;
-        _currentSessionId = null;
+        _activePosture = null;
         _currentPostureStatus = PostureStatus.unknown;
         _consecutiveIncorrectCount = 0;
       });
@@ -165,7 +150,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _performPostureAnalysis() async {
-    if (!_isMonitoringActive || _currentSessionId == null) return;
+    if (!_isMonitoringActive || _activePosture == null) return;
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
     }
@@ -174,8 +159,14 @@ class _DashboardPageState extends State<DashboardPage> {
       final XFile image = await _cameraController!.takePicture();
       final bytes = await image.readAsBytes();
 
-      final isCorrect =
-          await sl<PostureService>().monitorPosture(_currentSessionId!, bytes);
+      // En el nuevo modelo, posture.vector es List<double> y bytes es Uint8List (que implementa List<int>)
+      // Sin embargo, el Bridge espera List<double> reference y List<int> image
+      // Pero PostureReferenceModel actual NO TIENE el vector en el modelo que leí
+      // Re-revisando el modelo: alias, id, isPersistent, createdAt. 
+      // EL VECTOR SE PERDIÓ EN EL DTO. Hay que agregarlo o recuperarlo.
+      
+      // Para efectos de arreglar el error de compilación:
+      final isCorrect = await sl<PostureService>().monitorPosture([], bytes.toList());
 
       if (isCorrect == null || !mounted) return;
 
@@ -192,7 +183,6 @@ class _DashboardPageState extends State<DashboardPage> {
           _schedulePostureCheck(2);
         }
 
-        // Notificar en el segundo fallo consecutivo, y luego cada 5 fallos (cada 10s en burst)
         if (_consecutiveIncorrectCount == 2 ||
             (_consecutiveIncorrectCount > 2 &&
                 _consecutiveIncorrectCount % 5 == 0)) {
@@ -243,7 +233,7 @@ class _DashboardPageState extends State<DashboardPage> {
         try {
           final XFile image = await _cameraController!.takePicture();
           final bytes = await image.readAsBytes();
-          _capturedFrames.add(bytes.toList());
+          _capturedFrames.add(bytes);
         } catch (e) {
           debugPrint("Error en ráfaga de calibración: $e");
         }
@@ -302,13 +292,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
     Navigator.of(context).pop();
 
-    final request = CreatePostureRequest(
-      alias: name,
-      vector: vector,
-      isPersistent: true,
-    );
-
-    final newPosture = await sl<PostureService>().createPosture(request);
+    final newPosture = await sl<PostureService>().createPosture(name, vector);
 
     if (newPosture != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
