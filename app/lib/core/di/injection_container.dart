@@ -7,6 +7,7 @@ import '../../features/profile/data/services/profile_service.dart';
 import '../../features/dashboard/data/services/posture_service.dart';
 import '../../features/dashboard/data/services/notification_service.dart';
 import '../../features/pomodoro/data/services/work_session_service.dart';
+import '../../features/tasks/data/services/task_service.dart';
 
 final sl = GetIt.instance;
 
@@ -32,6 +33,8 @@ Future<void> init() async {
 
   sl.registerLazySingleton(() => WorkSessionService(
       db: sl(), notificationService: sl<NotificationService>()));
+
+  sl.registerLazySingleton(() => TaskService(db: sl()));
 
   sl.registerLazySingleton<NotificationService>(() => TheNotificationService());
 }

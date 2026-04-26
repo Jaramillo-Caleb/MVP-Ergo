@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:ergo_desktop/core/theme/app_colors.dart';
+import 'package:ergo_desktop/core/utils/date_picker_utils.dart';
 import 'package:ergo_desktop/features/profile/presentation/widgets/profile_text_field.dart';
 import 'package:ergo_desktop/features/profile/presentation/widgets/profile_button.dart';
 import 'package:ergo_desktop/features/profile/presentation/widgets/profile_label.dart';
@@ -36,7 +38,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isSaving = false;
   XFile? _imageFile;
   String? _selectedGender;
-  String? _avatarPath;
+  Uint8List? _dbPhotoBytes;
 
   @override
   void initState() {
@@ -53,7 +55,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _locationController.text = profile.location ?? '';
       _occupationController.text = profile.occupation ?? '';
       _selectedGender = profile.gender;
-      _avatarPath = profile.avatarPath;
+      _dbPhotoBytes = profile.photo;
 
       final date = profile.birthDate;
       _birthDateController.text =
@@ -70,15 +72,20 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _saveAll() async {
     setState(() => _isSaving = true);
 
+    Uint8List? photoBytes = _dbPhotoBytes;
+    if (_imageFile != null) {
+      photoBytes = await _imageFile!.readAsBytes();
+    }
+
     // Save Profile
     await profileService.updateProfile(
       fullName: _nameController.text,
-      birthDate:
-          _birthDateController.text, // Simplificado, debería enviarse ISO
+      birthDate: DatePickerUtils.parseToIso(_birthDateController.text) ??
+          DateTime.now().toIso8601String(),
       gender: _selectedGender ?? '',
       location: _locationController.text,
       occupation: _occupationController.text,
-      imagePath: _imageFile?.path,
+      photoBytes: photoBytes,
     );
 
     // Save Pomodoro Settings
@@ -216,8 +223,8 @@ class _SettingsPageState extends State<SettingsPage> {
     ImageProvider? provider;
     if (_imageFile != null) {
       provider = FileImage(File(_imageFile!.path));
-    } else if (_avatarPath != null && _avatarPath!.isNotEmpty) {
-      provider = NetworkImage("http://localhost:5000$_avatarPath");
+    } else if (_dbPhotoBytes != null) {
+      provider = MemoryImage(_dbPhotoBytes!);
     }
 
     return Column(

@@ -1,7 +1,4 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 import 'package:drift/drift.dart';
 import '../../../../core/database/app_database.dart';
 
@@ -20,53 +17,15 @@ class ProfileService {
     }
   }
 
-  Future<String?> _persistImageLocally(String originalPath) async {
-    try {
-      final appDocDir = await getApplicationDocumentsDirectory();
-      final profileImagesDir =
-          Directory(p.join(appDocDir.path, 'ergo_desktop', 'profile_images'));
-
-      if (!await profileImagesDir.exists()) {
-        await profileImagesDir.create(recursive: true);
-      }
-
-      final extension = p.extension(originalPath);
-      final newPath =
-          p.join(profileImagesDir.path, 'profile_current$extension');
-      final newFile = File(newPath);
-
-      if (await newFile.exists()) {
-        await newFile.delete();
-      }
-
-      await for (final file in profileImagesDir.list()) {
-        if (file is File) await file.delete();
-      }
-
-      final savedFile = await File(originalPath).copy(newPath);
-      return savedFile.path;
-    } catch (e) {
-      debugPrint("Error persisting image: $e");
-      return originalPath;
-    }
-  }
-
   Future<bool> updateProfile({
     required String fullName,
     required String birthDate,
     required String gender,
     required String location,
     required String occupation,
-    String? imagePath,
+    Uint8List? photoBytes,
   }) async {
     try {
-      String? localImagePath = imagePath;
-      if (imagePath != null &&
-          imagePath.isNotEmpty &&
-          !imagePath.contains('ergo_desktop')) {
-        localImagePath = await _persistImageLocally(imagePath);
-      }
-
       final entry = UsersCompanion(
         id: const Value('me'),
         fullName: Value(fullName),
@@ -75,7 +34,7 @@ class ProfileService {
         gender: Value(gender),
         location: Value(location),
         occupation: Value(occupation),
-        avatarPath: Value(localImagePath),
+        photo: Value(photoBytes),
         createdAt: Value(DateTime.now()),
       );
 

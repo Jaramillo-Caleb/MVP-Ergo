@@ -9,6 +9,9 @@ import 'package:local_notifier/local_notifier.dart';
 import 'package:ergo_desktop/features/pomodoro/data/services/work_session_service.dart';
 import 'package:ergo_desktop/features/profile/data/services/profile_service.dart';
 
+import 'package:provider/provider.dart';
+import 'package:ergo_desktop/features/tasks/data/services/task_service.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -26,7 +29,14 @@ void main() async {
     initialHome = const CompleteProfilePage();
   }
 
-  runApp(ErgoApp(initialHome: initialHome));
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: di.sl<TaskService>()),
+      ],
+      child: ErgoApp(initialHome: initialHome),
+    ),
+  );
 }
 
 class ErgoApp extends StatelessWidget {

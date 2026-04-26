@@ -6,48 +6,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:get_it/get_it.dart';
 
 import 'package:ergo_desktop/core/theme/app_colors.dart';
+import 'package:ergo_desktop/core/utils/date_picker_utils.dart';
+import 'package:ergo_desktop/core/widgets/app_date_picker_field.dart';
 import 'package:ergo_desktop/features/profile/presentation/widgets/profile_layout.dart';
 import 'package:ergo_desktop/features/profile/presentation/widgets/profile_text_field.dart';
 import 'package:ergo_desktop/features/profile/presentation/widgets/profile_button.dart';
 import 'package:ergo_desktop/features/profile/presentation/widgets/profile_label.dart';
 import 'package:ergo_desktop/features/profile/data/services/profile_service.dart';
 import 'package:ergo_desktop/features/home/presentation/pages/home_page.dart';
-
-class DateInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    String text = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-
-    if (oldValue.text.length >= 10 && newValue.text.length > oldValue.text.length) {
-      final base = oldValue.selection.baseOffset;
-      final extent = newValue.selection.extentOffset;
-      if (extent > base && base >= 0) {
-        final inserted = newValue.text.substring(base, extent);
-        final newDigits = inserted.replaceAll(RegExp(r'[^0-9]'), '');
-        if (newDigits.isNotEmpty) {
-          text = newDigits;
-        }
-      }
-    }
-
-    if (text.length > 8) text = text.substring(0, 8);
-
-    var buffer = StringBuffer();
-    for (int i = 0; i < text.length; i++) {
-      buffer.write(text[i]);
-      if ((i == 1 || i == 3) && i != text.length - 1) {
-        buffer.write('/');
-      }
-    }
-
-    var string = buffer.toString();
-
-    return TextEditingValue(
-        text: string,
-        selection: TextSelection.collapsed(offset: string.length));
-  }
-}
 
 class LocationModel {
   final String municipio;
@@ -115,42 +81,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     }
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime(2000),
-      firstDate: DateTime(1940),
-      lastDate: DateTime.now(),
-      helpText: 'FECHA DE NACIMIENTO',
-    );
-    if (picked != null) {
-      setState(() {
-        _birthDateController.text =
-            "${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}";
-      });
-    }
-  }
-
-  String? _parseDateToIso(String input) {
-    try {
-      final parts = input.split('/');
-      if (parts.length != 3) return null;
-      final day = int.parse(parts[0]);
-      final month = int.parse(parts[1]);
-      final year = int.parse(parts[2]);
-      final date = DateTime(year, month, day);
-      if (date.year != year || date.month != month || date.day != day) {
-        return null;
-      }
-      return date.toIso8601String();
-    } catch (_) {
-      return null;
-    }
-  }
-
   void _handleContinue() async {
     if (_formKey.currentState!.validate()) {
-      final isoDate = _parseDateToIso(_birthDateController.text);
+      final isoDate = DatePickerUtils.parseToIso(_birthDateController.text);
       if (isoDate == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Fecha inválida")),
@@ -164,13 +97,18 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           ? _otherProfessionController.text
           : (_selectedProfession ?? "");
 
+      Uint8List? photoBytes;
+      if (_imageFile != null) {
+        photoBytes = await _imageFile!.readAsBytes();
+      }
+
       final success = await profileService.updateProfile(
         fullName: _nameController.text.trim(),
         birthDate: isoDate,
         gender: _selectedGender ?? "",
         location: _locationController.text.trim(),
         occupation: occupation,
-        imagePath: _imageFile?.path,
+        photoBytes: photoBytes,
       );
 
       if (!mounted) return;
@@ -206,7 +144,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                   const SizedBox(height: 16),
                   const ProfileLabel("Nombre Completo"),
                   ProfileTextField(
-                      hint: "Ej. Juanito Perez",
+                      hint: "Ej. Pepito Perez",
                       controller: _nameController,
                       validator: (v) =>
                           v!.isEmpty ? "Ingresa tu nombre" : null),
@@ -229,23 +167,12 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const ProfileLabel("F. De Nacimiento"),
-                            TextFormField(
+                            AppDatePickerField(
                               controller: _birthDateController,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                DateInputFormatter(),
-                              ],
-                              decoration: _inputDecorationWithIcon(
-                                  "DD/MM/YYYY",
-                                  Icons.calendar_today,
-                                  () => _selectDate(context)),
-                              validator: (v) {
-                                if (v == null || v.isEmpty) return "Requerido";
-                                if (_parseDateToIso(v) == null) {
-                                  return "Fecha inválida";
-                                }
-                                return null;
-                              },
+                              helpText: 'FECHA DE NACIMIENTO',
+                              initialDate: DateTime(2000),
+                              firstDate: DateTime(1940),
+                              lastDate: DateTime.now(),
                             ),
                           ],
                         ),
@@ -275,37 +202,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                 ],
               ),
             ),
-    );
-  }
-
-  InputDecoration _inputDecorationWithIcon(
-      String hint, IconData icon, VoidCallback onTap) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
-      filled: true,
-      fillColor: const Color(0xFFF8FAFC),
-      suffixIcon: IconButton(
-        icon: Icon(icon, size: 18, color: AppColors.textSecondary),
-        onPressed: onTap,
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 1),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 2),
-      ),
     );
   }
 

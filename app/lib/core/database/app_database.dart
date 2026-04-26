@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 import '../native/win_vault.dart';
+import 'package:flutter/foundation.dart';
 
 part 'app_database.g.dart';
 
@@ -17,6 +18,7 @@ class Users extends Table {
   TextColumn get location => text().nullable()();
   TextColumn get occupation => text().nullable()();
   TextColumn get avatarPath => text().nullable().named('avatar_path')();
+  BlobColumn get photo => blob().nullable()();
   DateTimeColumn get createdAt => dateTime().named('created_at')();
 
   @override
@@ -59,12 +61,26 @@ class Settings extends Table {
   Set<Column> get primaryKey => {userId};
 }
 
-@DriftDatabase(tables: [Users, ReferencePoses, WorkSessions, Settings])
+class Tasks extends Table {
+  TextColumn get id => text()();
+  TextColumn get title => text()();
+  TextColumn get description => text()();
+  IntColumn get priority => integer()(); // 0: low, 1: medium, 2: high
+  DateTimeColumn get date => dateTime()();
+  IntColumn get status =>
+      integer()(); // 0: pending, 1: inProgress, 2: completed
+  DateTimeColumn get createdAt => dateTime().named('created_at')();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [Users, ReferencePoses, WorkSessions, Settings, Tasks])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 3; // Incremented for migration from sqflite
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -72,14 +88,11 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
         },
         onUpgrade: (m, from, to) async {
-          // Basic migration for now, can be expanded if needed
-          if (from < 3) {
-            // We are migrating from sqflite to Drift.
-            // Drift will create the tables if they don't exist.
-            // If they already exist (because they were created by sqflite),
-            // Drift might complain if schema doesn't match exactly.
-            // But since we are changing the entire persistence layer,
-            // we might just let it create or handle it.
+          if (from < 4) {
+            await m.createTable(tasks);
+          }
+          if (from < 5) {
+            await m.addColumn(users, users.photo);
           }
         },
       );
@@ -88,7 +101,7 @@ class AppDatabase extends _$AppDatabase {
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationSupportDirectory();
-    final file = File(p.join(dbFolder.path, 'ergo_db.db'));
+    final file = File(p.join(dbFolder.path, 'ergo.db'));
 
     if (Platform.isWindows) {
       final cachebase = (await getTemporaryDirectory()).path;
@@ -96,11 +109,14 @@ LazyDatabase _openConnection() {
     }
 
     final cipherToken = await WinVault.getOrCreateDatabaseKey();
+    if (kDebugMode) {
+      print('Password: $cipherToken');
+    }
 
     return NativeDatabase.createInBackground(file, setup: (db) {
-      db.execute("PRAGMA key = '$cipherToken ';");
-      // Verify encryption works
+      db.execute("PRAGMA key = '$cipherToken';");
       final result = db.select('PRAGMA cipher_version;');
+      db.execute("PRAGMA cipher_compatibility = 4;");
       if (result.isEmpty) {
         throw Exception('SQLCipher not available');
       }

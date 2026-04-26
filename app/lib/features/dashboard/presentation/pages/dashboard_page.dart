@@ -21,6 +21,9 @@ import 'package:ergo_desktop/features/dashboard/data/models/notification_model.d
 import 'package:ergo_desktop/features/pomodoro/data/services/work_session_service.dart';
 import 'package:ergo_desktop/features/pomodoro/data/models/work_session_model.dart';
 
+import 'package:ergo_desktop/features/dashboard/presentation/widgets/task_summary_card.dart';
+import 'package:ergo_desktop/features/tasks/data/services/task_service.dart';
+
 final sl = GetIt.instance;
 
 class DashboardPage extends StatefulWidget {
@@ -51,6 +54,11 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    await sl<TaskService>().loadTasks();
   }
 
   @override
@@ -369,10 +377,9 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
           const SizedBox(height: 30),
-          const SizedBox(
-              height: 200,
-              child: SimpleCard(
-                  child: PlaceholderWidget("Lista de Tareas\nPróximamente"))),
+          TaskSummaryCard(
+            onTap: () => widget.onNavigateToIndex?.call(1),
+          ),
           const SizedBox(height: 30),
           const SizedBox(
               height: 300,

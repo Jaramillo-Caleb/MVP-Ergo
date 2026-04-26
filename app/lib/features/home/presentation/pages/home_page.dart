@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 
 import 'package:ergo_desktop/core/theme/app_colors.dart';
 import 'package:ergo_desktop/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:ergo_desktop/features/pomodoro/presentation/pages/pomodoro_page.dart';
 import 'package:ergo_desktop/features/settings/presentation/pages/settings_page.dart';
+import 'package:ergo_desktop/features/tasks/presentation/pages/tasks_page.dart';
+import 'package:ergo_desktop/features/profile/data/services/profile_service.dart';
+import 'package:ergo_desktop/core/database/app_database.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -14,7 +18,25 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
-  final String _userName = "Usuario"; // Simplificado para versión local
+  String _userName = "Usuario";
+  User? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    final profileService = GetIt.instance<ProfileService>();
+    final user = await profileService.getProfile();
+    if (user != null && mounted) {
+      setState(() {
+        _currentUser = user;
+        _userName = user.fullName.split(' ')[0];
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +81,7 @@ class _HomePageState extends State<HomePage> {
           onNavigateToIndex: (idx) => setState(() => _selectedIndex = idx),
         );
       case 1:
-        return _buildGenericPage("Gestión de Tareas");
+        return const TasksPage();
       case 2:
         return const PomodoroPage();
       case 3:
@@ -98,7 +120,12 @@ class _HomePageState extends State<HomePage> {
         CircleAvatar(
           radius: 35,
           backgroundColor: Colors.grey[800],
-          child: const Icon(Icons.person, size: 40, color: Colors.white),
+          backgroundImage: _currentUser?.photo != null
+              ? MemoryImage(_currentUser!.photo!)
+              : null,
+          child: _currentUser?.photo == null
+              ? const Icon(Icons.person, size: 40, color: Colors.white)
+              : null,
         ),
         const SizedBox(height: 12),
         Text(
@@ -121,6 +148,8 @@ class _HomePageState extends State<HomePage> {
           onTap: () {
             setState(() => _selectedIndex = index);
           },
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
