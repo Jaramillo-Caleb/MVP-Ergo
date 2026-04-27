@@ -303,6 +303,8 @@ class _SettingsPageState extends State<SettingsPage> {
     final taskService = GetIt.instance<TaskService>();
     final result = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black87,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Container(

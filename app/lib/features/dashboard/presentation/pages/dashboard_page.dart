@@ -160,7 +160,7 @@ class _DashboardPageState extends State<DashboardPage> {
     try {
       final selectedPosture = await showDialog<PostureReferenceModel>(
         context: context,
-        barrierDismissible: false,
+        barrierColor: Colors.black87,
         builder: (context) => PostureSelectionDialog(
           onAddNew: _showCalibrationInstructions,
         ),
@@ -220,8 +220,16 @@ class _DashboardPageState extends State<DashboardPage> {
 
       if (_currentMode != AppMode.monitoring || !mounted) break;
 
-      // Determinar tiempo de espera basado en el estado (Ráfaga vs Normal)
-      final delaySeconds = _isBurstMode ? 2 : 10;
+      // Determinar tiempo de espera basado en el estado
+      int delaySeconds;
+      if (_currentPostureStatus == PostureStatus.incorrect) {
+        delaySeconds = 2; // Ráfaga para corregir
+      } else if (_currentPostureStatus == PostureStatus.userNotFound) {
+        delaySeconds = 30; // Ahorro de recursos si no hay nadie
+      } else {
+        delaySeconds = 10; // Normal (Correct o Unknown)
+      }
+
       await Future.delayed(Duration(seconds: delaySeconds));
     }
   }
@@ -229,7 +237,9 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _performPostureAnalysis() async {
     if (_currentMode != AppMode.monitoring ||
         _cameraController == null ||
-        !mounted) return;
+        !mounted) {
+      return;
+    }
     if (!_cameraController!.value.isInitialized || _isProcessingFrame) return;
 
     _isProcessingFrame = true;
@@ -238,6 +248,12 @@ class _DashboardPageState extends State<DashboardPage> {
       final XFile image = await _cameraController!.takePicture();
       if (!mounted || _currentMode != AppMode.monitoring) return;
 
+      // Optimización de Hardware: Liberar cámara inmediatamente si no estamos en ráfaga
+      // Esto permite que el sistema libere recursos mientras la IA procesa los bytes.
+      if (!_isBurstMode) {
+        _closeCameraIfUnused();
+      }
+
       final bytes = await image.readAsBytes();
 
       final isCorrect = await sl<PostureService>().monitorPosture(
@@ -245,8 +261,17 @@ class _DashboardPageState extends State<DashboardPage> {
         bytes,
       );
 
-      if (isCorrect == null || !mounted || _currentMode != AppMode.monitoring)
+      if (!mounted || _currentMode != AppMode.monitoring) return;
+
+      if (isCorrect == null) {
+        setState(() {
+          _currentPostureStatus = PostureStatus.userNotFound;
+          // No reset de contadores, solo pausa la ráfaga si estaba activa
+          // o simplemente mantenemos el estado previo de los contadores
+          // para cuando el usuario vuelva.
+        });
         return;
+      }
 
       setState(() {
         _currentPostureStatus =
@@ -280,23 +305,38 @@ class _DashboardPageState extends State<DashboardPage> {
 
   // --- LÓGICA DE CALIBRACIÓN (Async Loop) ---
 
-  void _showCalibrationInstructions() {
+  void _showCalibrationInstructions(
+      {PostureReferenceModel? existingPosture}) async {
     if (!mounted) return;
-    // El pop debe ser seguro
+
+    // Cerrar el diálogo de selección previo
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     }
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => CalibrationInstructionsDialog(
-        onContinue: _startCalibrationSequence,
-      ),
-    );
+    final showInstructions =
+        await sl<PostureService>().getShowCalibrationInstructions();
+
+    if (!showInstructions) {
+      _startCalibrationSequence(existingPosture: existingPosture);
+      return;
+    }
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: Colors.black87,
+        builder: (context) => CalibrationInstructionsDialog(
+          onContinue: () =>
+              _startCalibrationSequence(existingPosture: existingPosture),
+        ),
+      );
+    }
   }
 
-  Future<void> _startCalibrationSequence() async {
+  Future<void> _startCalibrationSequence(
+      {PostureReferenceModel? existingPosture}) async {
     final ok = await _openCameraIfNeeded();
     if (!ok || !mounted) return;
 
@@ -306,11 +346,12 @@ class _DashboardPageState extends State<DashboardPage> {
       _countdown = 5;
     });
 
-    _calibrationLoop();
+    _calibrationLoop(existingPosture: existingPosture);
   }
 
   /// Bucle secuencial para captura de calibración (1 frame por segundo).
-  Future<void> _calibrationLoop() async {
+  Future<void> _calibrationLoop(
+      {PostureReferenceModel? existingPosture}) async {
     while (_currentMode == AppMode.calibrating && _countdown > 0 && mounted) {
       _isProcessingFrame = true;
       try {
@@ -339,11 +380,12 @@ class _DashboardPageState extends State<DashboardPage> {
     }
 
     if (_currentMode == AppMode.calibrating && mounted) {
-      _finishCalibration();
+      _finishCalibration(existingPosture: existingPosture);
     }
   }
 
-  Future<void> _finishCalibration() async {
+  Future<void> _finishCalibration(
+      {PostureReferenceModel? existingPosture}) async {
     if (mounted) setState(() => _currentMode = AppMode.idle);
 
     if (!mounted) return;
@@ -351,7 +393,6 @@ class _DashboardPageState extends State<DashboardPage> {
     // Mostrar loading
     showDialog(
       context: context,
-      barrierDismissible: false,
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
@@ -362,7 +403,11 @@ class _DashboardPageState extends State<DashboardPage> {
       if (mounted) Navigator.of(context).pop(); // Quitar loading
 
       if (vector != null && mounted) {
-        _showSavePostureDialog(vector);
+        if (existingPosture != null) {
+          _updateExistingPosture(existingPosture, vector);
+        } else {
+          _showSavePostureDialog(vector);
+        }
       } else {
         _closeCameraIfUnused();
         if (mounted) {
@@ -379,6 +424,33 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<void> _updateExistingPosture(
+      PostureReferenceModel posture, List<double> vector) async {
+    if (!mounted) return;
+
+    try {
+      // Necesitamos un método en PostureService para actualizar el vector
+      final success =
+          await sl<PostureService>().updatePostureVector(posture.id, vector);
+
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Postura recalibrada con éxito.")),
+        );
+        // Reiniciar monitoreo con la nueva data si era la activa
+        if (_activePosture?.id == posture.id) {
+          final updatedPostures = await sl<PostureService>().getPostures();
+          final updated = updatedPostures.firstWhere((p) => p.id == posture.id);
+          _startMonitoringProcess(updated);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error al actualizar vector: $e");
+    } finally {
+      _closeCameraIfUnused();
+    }
+  }
+
   void _showSavePostureDialog(List<double> vector) {
     if (!mounted) return;
     showDialog(
@@ -389,7 +461,15 @@ class _DashboardPageState extends State<DashboardPage> {
         onTemporary: () {
           if (mounted) {
             Navigator.of(context).pop();
-            _closeCameraIfUnused();
+            // Crear un modelo temporal (no persistente en DB)
+            final tempPosture = PostureReferenceModel(
+              id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+              alias: 'Temporal',
+              isPersistent: false,
+              createdAt: DateTime.now(),
+              vector: vector.join(','),
+            );
+            _startMonitoringProcess(tempPosture);
           }
         },
       ),
@@ -455,10 +535,16 @@ class _DashboardPageState extends State<DashboardPage> {
                     final pomodoroState = sl<WorkSessionService>().state;
                     final isIdle = pomodoroState == PomodoroState.idle;
 
+                    final isMonitoring = _currentMode == AppMode.monitoring;
+
                     return ActionButtonsCard(
                       pomodoroLabel:
                           isIdle ? "Inicio Pomodoro" : "Ir a Pomodoro",
                       pomodoroColor: AppColors.sidebarBackground,
+                      monitoringLabel:
+                          isMonitoring ? "Parar monitoreo" : "Inicio monitoreo",
+                      monitoringColor:
+                          isMonitoring ? Colors.red[400]! : Colors.white,
                       onPomodoro: () {
                         if (isIdle) {
                           _handleStartPomodoro();
@@ -467,7 +553,6 @@ class _DashboardPageState extends State<DashboardPage> {
                         }
                       },
                       onMonitoring: _handleStartMonitoring,
-                      onCombined: _showComingSoon,
                     );
                   },
                 ),
@@ -496,11 +581,5 @@ class _DashboardPageState extends State<DashboardPage> {
         ],
       ),
     );
-  }
-
-  void _showComingSoon() {
-    showDialog(
-        context: context,
-        builder: (context) => const AlertDialog(title: Text("Próximamente")));
   }
 }

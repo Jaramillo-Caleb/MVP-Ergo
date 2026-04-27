@@ -88,7 +88,8 @@ class _TasksPageState extends State<TasksPage> {
   void _showTaskDialog(BuildContext context) {
     showGeneralDialog(
       context: context,
-      barrierDismissible: true,
+      barrierDismissible: false,
+      barrierColor: Colors.black87,
       barrierLabel: "",
       transitionDuration: Duration.zero,
       pageBuilder: (context, anim1, anim2) => TaskDialog(service: _taskService),

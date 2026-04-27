@@ -26,26 +26,30 @@ class MonitoringCard extends StatelessWidget {
         cameraController!.value.isInitialized) {
       child = _buildLiveCameraView();
     } else if (mode == AppMode.monitoring) {
-      child = _buildActiveMonitoringView();
+      if (postureStatus == PostureStatus.userNotFound) {
+        child = _buildUserNotFoundView();
+      } else {
+        child = _buildActiveMonitoringView();
+      }
     } else {
       child = _buildInactiveView();
     }
 
     return Container(
-      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppColors.sidebarBackground,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           )
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(16),
         child: child,
       ),
     );
@@ -54,26 +58,31 @@ class MonitoringCard extends StatelessWidget {
   Widget _buildActiveMonitoringView() {
     final bool isCorrect = postureStatus == PostureStatus.correct;
     final IconData icon =
-        isCorrect ? Icons.check_circle_outline : Icons.warning_amber_rounded;
-    final Color color = isCorrect ? Colors.greenAccent : Colors.orangeAccent;
-    final String title = isCorrect ? "Postura Correcta" : "Corrección Necesaria";
-    final String subtitle =
-        isCorrect ? "¡Sigue así!" : "Ajusta tu espalda y cuello.";
+        isCorrect ? Icons.check_circle_rounded : Icons.error_outline_rounded;
+    final Color color =
+        isCorrect ? const Color(0xFF4ADE80) : const Color(0xFFFB923C);
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, size: 50, color: color),
-        const SizedBox(height: 15),
-        Text(title,
-            style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: Colors.white)),
-        const SizedBox(height: 10),
-        Text(subtitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.grey, fontSize: 14)),
+        Icon(icon, size: 64, color: color),
+        const SizedBox(height: 20),
+        Text(
+          isCorrect ? "Postura correcta" : "Corrección necesaria",
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          isCorrect
+              ? "Mantienes una buena posición"
+              : "Ajusta tu espalda y cuello",
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
+        ),
       ],
     );
   }
@@ -82,76 +91,96 @@ class MonitoringCard extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Container(
-          padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.videocam_off_outlined,
-              size: 40, color: Colors.grey),
-        ),
-        const SizedBox(height: 15),
-        const Text("Monitoreo inactivo",
-            style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: Colors.white)),
-        const SizedBox(height: 10),
+        Icon(Icons.videocam_off_outlined,
+            size: 48, color: Colors.white.withValues(alpha: 0.2)),
+        const SizedBox(height: 20),
         const Text(
-          "Selecciona una postura guardada o\nañade una nueva para comenzar.",
+          "Monitoreo inactivo",
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          "Selecciona una postura guardada para\ncomenzar el seguimiento.",
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey, fontSize: 14),
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.4), fontSize: 14),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUserNotFoundView() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.person_off_outlined,
+            size: 48, color: Colors.white.withValues(alpha: 0.2)),
+        const SizedBox(height: 20),
+        const Text(
+          "Usuario no detectado",
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          "Entrando en modo de ahorro de energía (30s)",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.4), fontSize: 14),
         ),
       ],
     );
   }
 
   Widget _buildLiveCameraView() {
-    return Stack(
-      alignment: Alignment.center,
+    return Row(
       children: [
-        CameraPreview(cameraController!),
-        Container(
-          color: Colors.black.withValues(alpha: 0.3),
-        ),
-        const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              "ANALIZANDO POSTURA",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: Colors.white,
-                shadows: [Shadow(blurRadius: 5, color: Colors.black)],
-              ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Analizando\npostura",
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text("Mantén la espalda recta",
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 12)),
+              ],
             ),
-            SizedBox(height: 10),
-            Text(
-              "Mantén la espalda recta y no te muevas.",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-                shadows: [Shadow(blurRadius: 5, color: Colors.black)],
-              ),
-            ),
-          ],
+          ),
         ),
-        Positioned(
-          top: 0,
-          right: 0,
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-                color: AppColors.primaryBlue, shape: BoxShape.circle),
-            child: Text(
-              "$countdown s",
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16),
+        AspectRatio(
+          aspectRatio: cameraController!.value.aspectRatio,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: CameraPreview(cameraController!),
+          ),
+        ),
+        Expanded(
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2962FF),
+                shape: BoxShape.circle,
+              ),
+              child: Text("${countdown}s",
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ),
         ),

@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import '../models/posture_models.dart';
 import 'package:logger/logger.dart';
 import 'package:drift/drift.dart';
@@ -92,6 +96,20 @@ class PostureService {
     }
   }
 
+  Future<bool> updatePostureVector(String id, List<double> vector) async {
+    try {
+      final vectorStr = vector.join(',');
+      final count = await (_db.update(_db.referencePoses)
+            ..where((t) => t.id.equals(id)))
+          .write(ReferencePosesCompanion(vector: Value(vectorStr)));
+      return count > 0;
+    } catch (e, stackTrace) {
+      logger.e("Error updating posture vector",
+          error: e, stackTrace: stackTrace);
+      return false;
+    }
+  }
+
   Future<List<double>?> computeCalibration(List<Uint8List> imagesBytes) async {
     if (imagesBytes.isEmpty) return null;
 
@@ -118,10 +136,33 @@ class PostureService {
     return null;
   }
 
-  Future<bool?> monitorPosture(List<double> referenceVector, List<int> frame) async {
+  Future<bool> getShowCalibrationInstructions() async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final file = File(p.join(dir.path, 'calibration_show_instr.txt'));
+      if (!await file.exists()) return true;
+      final content = await file.readAsString();
+      return content.trim() != 'false';
+    } catch (e) {
+      return true;
+    }
+  }
+
+  Future<void> setShowCalibrationInstructions(bool show) async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final file = File(p.join(dir.path, 'calibration_show_instr.txt'));
+      await file.writeAsString(show.toString());
+    } catch (e) {
+      debugPrint("Error saving calibration instructions preference: $e");
+    }
+  }
+
+  Future<bool?> monitorPosture(
+      List<double> referenceVector, List<int> frame) async {
     try {
       final result = _bridge.processFrame(referenceVector, frame);
-      return !result.$2; 
+      return !result.$2;
     } catch (e) {
       logger.e("Error en monitoreo nativo", error: e);
     }

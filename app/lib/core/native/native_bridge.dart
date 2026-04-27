@@ -2,7 +2,6 @@ import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as p;
-import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 final class CalculationResult extends ffi.Struct {
