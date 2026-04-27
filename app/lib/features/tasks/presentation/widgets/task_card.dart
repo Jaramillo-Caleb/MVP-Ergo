@@ -46,16 +46,24 @@ class _TaskCardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final taskDate = DateTime(task.date.year, task.date.month, task.date.day);
+
+    final bool isOverdue =
+        taskDate.isBefore(today) && task.status != TaskStatus.completed;
+    final Color dateColor = isOverdue ? Colors.redAccent : Colors.grey[600]!;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Column(
               children: [
                 Checkbox(
                   value: task.status == TaskStatus.completed,
@@ -65,63 +73,80 @@ class _TaskCardContent extends StatelessWidget {
                         val! ? TaskStatus.completed : TaskStatus.pending);
                   },
                 ),
-                Expanded(
-                  child: Text(
-                    task.title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      decoration: task.status == TaskStatus.completed
-                          ? TextDecoration.lineThrough
-                          : null,
-                    ),
+                Text(
+                  task.priority.name.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: _getPriorityColor(task.priority),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  onPressed: () => _showEditDialog(context),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline,
-                      size: 18, color: Colors.redAccent),
-                  // CAMBIO: Ahora llama al diálogo de confirmación
-                  onPressed: () => _showDeleteConfirmDialog(context),
                 ),
               ],
             ),
-            if (task.description.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(left: 48.0, bottom: 12),
-                child: Text(
-                  task.description,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.textSecondary),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.only(left: 48.0, bottom: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    task.priority.name.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: _getPriorityColor(task.priority),
-                    ),
-                  ),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.calendar_today_outlined,
-                          size: 12, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        DateFormat('dd/MM/yy').format(task.date),
-                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Text(
+                            task.title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              decoration: task.status == TaskStatus.completed
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        onPressed: () => _showEditDialog(context),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline,
+                            size: 20, color: Colors.redAccent),
+                        onPressed: () => _showDeleteConfirmDialog(context),
                       ),
                     ],
+                  ),
+                  if (task.description.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 8),
+                      child: Text(
+                        task.description,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textSecondary),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.calendar_today_outlined,
+                            size: 12, color: dateColor),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateFormat('dd/MM/yy').format(task.date),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: dateColor,
+                            fontWeight:
+                                isOverdue ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -221,7 +246,7 @@ class _TaskCardContent extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.redAccent,
                         foregroundColor: Colors.white,
-                        elevation: 0, // Sin sombras pesadas
+                        elevation: 0,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
                         padding: const EdgeInsets.symmetric(vertical: 16),

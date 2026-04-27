@@ -16,7 +16,7 @@ class TaskSummaryCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9), // Light gray background for encapsulation
+        color: const Color(0xFFE2E8F0),
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
@@ -75,15 +75,25 @@ class _TaskItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final taskDate = DateTime(task.date.year, task.date.month, task.date.day);
+    final bool isOverdue =
+        taskDate.isBefore(today) && task.status != TaskStatus.completed;
+    final Color dateColor = isOverdue ? Colors.redAccent : Colors.grey[700]!;
     return Container(
-      width: 200, // Fixed width for wrap items
+      width: 200,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.black.withValues(alpha: 0.15),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -119,15 +129,16 @@ class _TaskItem extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
                     color: AppColors.textMain,
                   ),
                 ),
                 Text(
                   DatePickerUtils.formatDate(task.date),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: AppColors.textSecondary,
+                    fontWeight: isOverdue ? FontWeight.bold : FontWeight.w500,
+                    color: dateColor,
                   ),
                 ),
               ],

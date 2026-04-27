@@ -10,31 +10,48 @@ class TaskService extends ChangeNotifier {
 
   List<TaskModel> _tasks = [];
   List<TaskModel> get tasks => _tasks;
+  String _sortStrategy = "Prioridad";
 
   TaskService({required AppDatabase db}) : _db = db;
 
+  void setSortStrategy(String strategy) {
+    _sortStrategy = strategy;
+    _sortTasks();
+    notifyListeners();
+  }
+
   Future<void> loadTasks() async {
     final rows = await _db.select(_db.tasks).get();
-    _tasks = rows.map((row) => TaskModel(
-      id: row.id,
-      title: row.title,
-      description: row.description,
-      priority: TaskPriority.values[row.priority],
-      date: row.date,
-      status: TaskStatus.values[row.status],
-      createdAt: row.createdAt,
-    )).toList();
+    _tasks = rows
+        .map((row) => TaskModel(
+              id: row.id,
+              title: row.title,
+              description: row.description,
+              priority: TaskPriority.values[row.priority],
+              date: row.date,
+              status: TaskStatus.values[row.status],
+              createdAt: row.createdAt,
+            ))
+        .toList();
     _sortTasks();
     notifyListeners();
   }
 
   void _sortTasks() {
     _tasks.sort((a, b) {
-      // First by priority (high to low)
-      int priorityCompare = b.priority.index.compareTo(a.priority.index);
-      if (priorityCompare != 0) return priorityCompare;
-      // Then by date
-      return a.date.compareTo(b.date);
+      switch (_sortStrategy) {
+        case "Fecha":
+          return b.date.compareTo(a.date);
+        case "Nombre (A-Z)":
+          return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+        case "Prioridad":
+        default:
+          // First by priority (high to low)
+          int priorityCompare = b.priority.index.compareTo(a.priority.index);
+          if (priorityCompare != 0) return priorityCompare;
+          // Then by date
+          return a.date.compareTo(b.date);
+      }
     });
   }
 
@@ -84,6 +101,14 @@ class TaskService extends ChangeNotifier {
       final updatedTask = _tasks[index].copyWith(status: newStatus);
       await updateTask(updatedTask);
     }
+  }
+
+  Future<void> clearCompletedTasks() async {
+    await (_db.delete(_db.tasks)
+          ..where((t) => t.status.equals(TaskStatus.completed.index)))
+        .go();
+    _tasks.removeWhere((t) => t.status == TaskStatus.completed);
+    notifyListeners();
   }
 
   String generateId() => _uuid.v4();

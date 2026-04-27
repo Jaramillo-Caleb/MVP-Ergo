@@ -130,6 +130,7 @@ class EditPostureDialog extends StatefulWidget {
 class _EditPostureDialogState extends State<EditPostureDialog> {
   late TextEditingController _textController;
   bool _isDeleting = false;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -144,6 +145,19 @@ class _EditPostureDialogState extends State<EditPostureDialog> {
       Navigator.pop(context);
     }
     if (mounted) setState(() => _isDeleting = false);
+  }
+
+  Future<void> _saveChanges() async {
+    if (_textController.text.trim().isEmpty) return;
+
+    setState(() => _isSaving = true);
+    final success = await sl<PostureService>()
+        .updatePosture(widget.posture.id, _textController.text.trim());
+
+    if (success && mounted) {
+      Navigator.pop(context);
+    }
+    if (mounted) setState(() => _isSaving = false);
   }
 
   @override
@@ -230,16 +244,14 @@ class _EditPostureDialogState extends State<EditPostureDialog> {
                   child: SizedBox(
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
+                      onPressed: _isSaving ? null : _saveChanges,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.sidebarBackground,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: const Text("Guardar cambios",
-                          style: TextStyle(
+                      child: Text(_isSaving ? "Guardando..." : "Guardar cambios",
+                          style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold)),
                     ),

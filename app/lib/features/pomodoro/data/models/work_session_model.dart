@@ -19,6 +19,7 @@ class PomodoroSettings {
   final int breakDuration;
   final bool autoStart;
   final int repetitions;
+  final String taskSortStrategy;
 
   const PomodoroSettings({
     this.userId = 'me',
@@ -26,6 +27,7 @@ class PomodoroSettings {
     this.breakDuration = 5,
     this.autoStart = false,
     this.repetitions = 1,
+    this.taskSortStrategy = 'Prioridad',
   });
 
   Map<String, dynamic> toMap() {
@@ -35,6 +37,7 @@ class PomodoroSettings {
       'break_duration': breakDuration,
       'auto_start': autoStart ? 1 : 0,
       'repetitions': repetitions,
+      'task_sort_strategy': taskSortStrategy,
     };
   }
 
@@ -45,6 +48,7 @@ class PomodoroSettings {
       breakDuration: map['break_duration'] ?? 5,
       autoStart: (map['auto_start'] ?? 0) == 1,
       repetitions: map['repetitions'] ?? 1,
+      taskSortStrategy: map['task_sort_strategy'] ?? 'Prioridad',
     );
   }
 
@@ -54,6 +58,7 @@ class PomodoroSettings {
     int? breakDuration,
     bool? autoStart,
     int? repetitions,
+    String? taskSortStrategy,
   }) {
     return PomodoroSettings(
       userId: userId ?? this.userId,
@@ -61,6 +66,7 @@ class PomodoroSettings {
       breakDuration: breakDuration ?? this.breakDuration,
       autoStart: autoStart ?? this.autoStart,
       repetitions: repetitions ?? this.repetitions,
+      taskSortStrategy: taskSortStrategy ?? this.taskSortStrategy,
     );
   }
 }

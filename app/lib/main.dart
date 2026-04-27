@@ -23,7 +23,11 @@ void main() async {
 
   Widget initialHome;
   if (profile != null) {
-    di.sl<WorkSessionService>().prefetchSettings();
+    final sessionService = di.sl<WorkSessionService>();
+    await sessionService.prefetchSettings();
+    if (sessionService.settings != null) {
+      di.sl<TaskService>().setSortStrategy(sessionService.settings!.taskSortStrategy);
+    }
     initialHome = const HomePage();
   } else {
     initialHome = const CompleteProfilePage();

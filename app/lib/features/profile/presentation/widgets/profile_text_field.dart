@@ -11,7 +11,9 @@ class ProfileTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final bool readOnly;        
   final VoidCallback? onTap;   
-  final FocusNode? focusNode;  
+  final ValueChanged<String>? onChanged;
+  final FocusNode? focusNode;
+  
   final List<TextInputFormatter>? inputFormatters; 
   final TextInputType? keyboardType;
 
@@ -25,6 +27,7 @@ class ProfileTextField extends StatelessWidget {
     this.validator,
     this.readOnly = false,
     this.onTap,
+    this.onChanged,
     this.focusNode,
     this.inputFormatters,
     this.keyboardType,
@@ -38,6 +41,7 @@ class ProfileTextField extends StatelessWidget {
       validator: validator,
       readOnly: readOnly,
       onTap: onTap,
+      onChanged: onChanged,
       focusNode: focusNode,
       inputFormatters: inputFormatters,
       keyboardType: keyboardType,

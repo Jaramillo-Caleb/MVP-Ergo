@@ -13,11 +13,6 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
   late final GeneratedColumn<String> id = GeneratedColumn<String>(
       'id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _emailMeta = const VerificationMeta('email');
-  @override
-  late final GeneratedColumn<String> email = GeneratedColumn<String>(
-      'email', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
   static const VerificationMeta _fullNameMeta =
       const VerificationMeta('fullName');
   @override
@@ -47,12 +42,6 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
   late final GeneratedColumn<String> occupation = GeneratedColumn<String>(
       'occupation', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _avatarPathMeta =
-      const VerificationMeta('avatarPath');
-  @override
-  late final GeneratedColumn<String> avatarPath = GeneratedColumn<String>(
-      'avatar_path', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _photoMeta = const VerificationMeta('photo');
   @override
   late final GeneratedColumn<Uint8List> photo = GeneratedColumn<Uint8List>(
@@ -65,18 +54,8 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
       'created_at', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
   @override
-  List<GeneratedColumn> get $columns => [
-        id,
-        email,
-        fullName,
-        birthDate,
-        gender,
-        location,
-        occupation,
-        avatarPath,
-        photo,
-        createdAt
-      ];
+  List<GeneratedColumn> get $columns =>
+      [id, fullName, birthDate, gender, location, occupation, photo, createdAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -91,12 +70,6 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
-    }
-    if (data.containsKey('email')) {
-      context.handle(
-          _emailMeta, email.isAcceptableOrUnknown(data['email']!, _emailMeta));
-    } else if (isInserting) {
-      context.missing(_emailMeta);
     }
     if (data.containsKey('full_name')) {
       context.handle(_fullNameMeta,
@@ -124,12 +97,6 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
           occupation.isAcceptableOrUnknown(
               data['occupation']!, _occupationMeta));
     }
-    if (data.containsKey('avatar_path')) {
-      context.handle(
-          _avatarPathMeta,
-          avatarPath.isAcceptableOrUnknown(
-              data['avatar_path']!, _avatarPathMeta));
-    }
     if (data.containsKey('photo')) {
       context.handle(
           _photoMeta, photo.isAcceptableOrUnknown(data['photo']!, _photoMeta));
@@ -151,8 +118,6 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     return User(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
-      email: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}email'])!,
       fullName: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}full_name'])!,
       birthDate: attachedDatabase.typeMapping
@@ -163,8 +128,6 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
           .read(DriftSqlType.string, data['${effectivePrefix}location']),
       occupation: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}occupation']),
-      avatarPath: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}avatar_path']),
       photo: attachedDatabase.typeMapping
           .read(DriftSqlType.blob, data['${effectivePrefix}photo']),
       createdAt: attachedDatabase.typeMapping
@@ -180,31 +143,26 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
 
 class User extends DataClass implements Insertable<User> {
   final String id;
-  final String email;
   final String fullName;
   final DateTime birthDate;
   final String? gender;
   final String? location;
   final String? occupation;
-  final String? avatarPath;
   final Uint8List? photo;
   final DateTime createdAt;
   const User(
       {required this.id,
-      required this.email,
       required this.fullName,
       required this.birthDate,
       this.gender,
       this.location,
       this.occupation,
-      this.avatarPath,
       this.photo,
       required this.createdAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
-    map['email'] = Variable<String>(email);
     map['full_name'] = Variable<String>(fullName);
     map['birth_date'] = Variable<DateTime>(birthDate);
     if (!nullToAbsent || gender != null) {
@@ -216,9 +174,6 @@ class User extends DataClass implements Insertable<User> {
     if (!nullToAbsent || occupation != null) {
       map['occupation'] = Variable<String>(occupation);
     }
-    if (!nullToAbsent || avatarPath != null) {
-      map['avatar_path'] = Variable<String>(avatarPath);
-    }
     if (!nullToAbsent || photo != null) {
       map['photo'] = Variable<Uint8List>(photo);
     }
@@ -229,7 +184,6 @@ class User extends DataClass implements Insertable<User> {
   UsersCompanion toCompanion(bool nullToAbsent) {
     return UsersCompanion(
       id: Value(id),
-      email: Value(email),
       fullName: Value(fullName),
       birthDate: Value(birthDate),
       gender:
@@ -240,9 +194,6 @@ class User extends DataClass implements Insertable<User> {
       occupation: occupation == null && nullToAbsent
           ? const Value.absent()
           : Value(occupation),
-      avatarPath: avatarPath == null && nullToAbsent
-          ? const Value.absent()
-          : Value(avatarPath),
       photo:
           photo == null && nullToAbsent ? const Value.absent() : Value(photo),
       createdAt: Value(createdAt),
@@ -254,13 +205,11 @@ class User extends DataClass implements Insertable<User> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return User(
       id: serializer.fromJson<String>(json['id']),
-      email: serializer.fromJson<String>(json['email']),
       fullName: serializer.fromJson<String>(json['fullName']),
       birthDate: serializer.fromJson<DateTime>(json['birthDate']),
       gender: serializer.fromJson<String?>(json['gender']),
       location: serializer.fromJson<String?>(json['location']),
       occupation: serializer.fromJson<String?>(json['occupation']),
-      avatarPath: serializer.fromJson<String?>(json['avatarPath']),
       photo: serializer.fromJson<Uint8List?>(json['photo']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
@@ -270,13 +219,11 @@ class User extends DataClass implements Insertable<User> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
-      'email': serializer.toJson<String>(email),
       'fullName': serializer.toJson<String>(fullName),
       'birthDate': serializer.toJson<DateTime>(birthDate),
       'gender': serializer.toJson<String?>(gender),
       'location': serializer.toJson<String?>(location),
       'occupation': serializer.toJson<String?>(occupation),
-      'avatarPath': serializer.toJson<String?>(avatarPath),
       'photo': serializer.toJson<Uint8List?>(photo),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
@@ -284,39 +231,32 @@ class User extends DataClass implements Insertable<User> {
 
   User copyWith(
           {String? id,
-          String? email,
           String? fullName,
           DateTime? birthDate,
           Value<String?> gender = const Value.absent(),
           Value<String?> location = const Value.absent(),
           Value<String?> occupation = const Value.absent(),
-          Value<String?> avatarPath = const Value.absent(),
           Value<Uint8List?> photo = const Value.absent(),
           DateTime? createdAt}) =>
       User(
         id: id ?? this.id,
-        email: email ?? this.email,
         fullName: fullName ?? this.fullName,
         birthDate: birthDate ?? this.birthDate,
         gender: gender.present ? gender.value : this.gender,
         location: location.present ? location.value : this.location,
         occupation: occupation.present ? occupation.value : this.occupation,
-        avatarPath: avatarPath.present ? avatarPath.value : this.avatarPath,
         photo: photo.present ? photo.value : this.photo,
         createdAt: createdAt ?? this.createdAt,
       );
   User copyWithCompanion(UsersCompanion data) {
     return User(
       id: data.id.present ? data.id.value : this.id,
-      email: data.email.present ? data.email.value : this.email,
       fullName: data.fullName.present ? data.fullName.value : this.fullName,
       birthDate: data.birthDate.present ? data.birthDate.value : this.birthDate,
       gender: data.gender.present ? data.gender.value : this.gender,
       location: data.location.present ? data.location.value : this.location,
       occupation:
           data.occupation.present ? data.occupation.value : this.occupation,
-      avatarPath:
-          data.avatarPath.present ? data.avatarPath.value : this.avatarPath,
       photo: data.photo.present ? data.photo.value : this.photo,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
@@ -326,13 +266,11 @@ class User extends DataClass implements Insertable<User> {
   String toString() {
     return (StringBuffer('User(')
           ..write('id: $id, ')
-          ..write('email: $email, ')
           ..write('fullName: $fullName, ')
           ..write('birthDate: $birthDate, ')
           ..write('gender: $gender, ')
           ..write('location: $location, ')
           ..write('occupation: $occupation, ')
-          ..write('avatarPath: $avatarPath, ')
           ..write('photo: $photo, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
@@ -340,97 +278,75 @@ class User extends DataClass implements Insertable<User> {
   }
 
   @override
-  int get hashCode => Object.hash(
-      id,
-      email,
-      fullName,
-      birthDate,
-      gender,
-      location,
-      occupation,
-      avatarPath,
-      $driftBlobEquality.hash(photo),
-      createdAt);
+  int get hashCode => Object.hash(id, fullName, birthDate, gender, location,
+      occupation, $driftBlobEquality.hash(photo), createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is User &&
           other.id == this.id &&
-          other.email == this.email &&
           other.fullName == this.fullName &&
           other.birthDate == this.birthDate &&
           other.gender == this.gender &&
           other.location == this.location &&
           other.occupation == this.occupation &&
-          other.avatarPath == this.avatarPath &&
           $driftBlobEquality.equals(other.photo, this.photo) &&
           other.createdAt == this.createdAt);
 }
 
 class UsersCompanion extends UpdateCompanion<User> {
   final Value<String> id;
-  final Value<String> email;
   final Value<String> fullName;
   final Value<DateTime> birthDate;
   final Value<String?> gender;
   final Value<String?> location;
   final Value<String?> occupation;
-  final Value<String?> avatarPath;
   final Value<Uint8List?> photo;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const UsersCompanion({
     this.id = const Value.absent(),
-    this.email = const Value.absent(),
     this.fullName = const Value.absent(),
     this.birthDate = const Value.absent(),
     this.gender = const Value.absent(),
     this.location = const Value.absent(),
     this.occupation = const Value.absent(),
-    this.avatarPath = const Value.absent(),
     this.photo = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   UsersCompanion.insert({
     required String id,
-    required String email,
     required String fullName,
     required DateTime birthDate,
     this.gender = const Value.absent(),
     this.location = const Value.absent(),
     this.occupation = const Value.absent(),
-    this.avatarPath = const Value.absent(),
     this.photo = const Value.absent(),
     required DateTime createdAt,
     this.rowid = const Value.absent(),
   })  : id = Value(id),
-        email = Value(email),
         fullName = Value(fullName),
         birthDate = Value(birthDate),
         createdAt = Value(createdAt);
   static Insertable<User> custom({
     Expression<String>? id,
-    Expression<String>? email,
     Expression<String>? fullName,
     Expression<DateTime>? birthDate,
     Expression<String>? gender,
     Expression<String>? location,
     Expression<String>? occupation,
-    Expression<String>? avatarPath,
     Expression<Uint8List>? photo,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (email != null) 'email': email,
       if (fullName != null) 'full_name': fullName,
       if (birthDate != null) 'birth_date': birthDate,
       if (gender != null) 'gender': gender,
       if (location != null) 'location': location,
       if (occupation != null) 'occupation': occupation,
-      if (avatarPath != null) 'avatar_path': avatarPath,
       if (photo != null) 'photo': photo,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
@@ -439,25 +355,21 @@ class UsersCompanion extends UpdateCompanion<User> {
 
   UsersCompanion copyWith(
       {Value<String>? id,
-      Value<String>? email,
       Value<String>? fullName,
       Value<DateTime>? birthDate,
       Value<String?>? gender,
       Value<String?>? location,
       Value<String?>? occupation,
-      Value<String?>? avatarPath,
       Value<Uint8List?>? photo,
       Value<DateTime>? createdAt,
       Value<int>? rowid}) {
     return UsersCompanion(
       id: id ?? this.id,
-      email: email ?? this.email,
       fullName: fullName ?? this.fullName,
       birthDate: birthDate ?? this.birthDate,
       gender: gender ?? this.gender,
       location: location ?? this.location,
       occupation: occupation ?? this.occupation,
-      avatarPath: avatarPath ?? this.avatarPath,
       photo: photo ?? this.photo,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
@@ -469,9 +381,6 @@ class UsersCompanion extends UpdateCompanion<User> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<String>(id.value);
-    }
-    if (email.present) {
-      map['email'] = Variable<String>(email.value);
     }
     if (fullName.present) {
       map['full_name'] = Variable<String>(fullName.value);
@@ -487,9 +396,6 @@ class UsersCompanion extends UpdateCompanion<User> {
     }
     if (occupation.present) {
       map['occupation'] = Variable<String>(occupation.value);
-    }
-    if (avatarPath.present) {
-      map['avatar_path'] = Variable<String>(avatarPath.value);
     }
     if (photo.present) {
       map['photo'] = Variable<Uint8List>(photo.value);
@@ -507,13 +413,11 @@ class UsersCompanion extends UpdateCompanion<User> {
   String toString() {
     return (StringBuffer('UsersCompanion(')
           ..write('id: $id, ')
-          ..write('email: $email, ')
           ..write('fullName: $fullName, ')
           ..write('birthDate: $birthDate, ')
           ..write('gender: $gender, ')
           ..write('location: $location, ')
           ..write('occupation: $occupation, ')
-          ..write('avatarPath: $avatarPath, ')
           ..write('photo: $photo, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
@@ -1195,9 +1099,23 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: const Constant(1));
+  static const VerificationMeta _taskSortStrategyMeta =
+      const VerificationMeta('taskSortStrategy');
   @override
-  List<GeneratedColumn> get $columns =>
-      [userId, workDuration, breakDuration, autoStart, repetitions];
+  late final GeneratedColumn<String> taskSortStrategy = GeneratedColumn<String>(
+      'task_sort_strategy', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant("Prioridad"));
+  @override
+  List<GeneratedColumn> get $columns => [
+        userId,
+        workDuration,
+        breakDuration,
+        autoStart,
+        repetitions,
+        taskSortStrategy
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1236,6 +1154,12 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
           repetitions.isAcceptableOrUnknown(
               data['repetitions']!, _repetitionsMeta));
     }
+    if (data.containsKey('task_sort_strategy')) {
+      context.handle(
+          _taskSortStrategyMeta,
+          taskSortStrategy.isAcceptableOrUnknown(
+              data['task_sort_strategy']!, _taskSortStrategyMeta));
+    }
     return context;
   }
 
@@ -1255,6 +1179,8 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
           .read(DriftSqlType.bool, data['${effectivePrefix}auto_start'])!,
       repetitions: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}repetitions'])!,
+      taskSortStrategy: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}task_sort_strategy'])!,
     );
   }
 
@@ -1270,12 +1196,14 @@ class Setting extends DataClass implements Insertable<Setting> {
   final int breakDuration;
   final bool autoStart;
   final int repetitions;
+  final String taskSortStrategy;
   const Setting(
       {required this.userId,
       required this.workDuration,
       required this.breakDuration,
       required this.autoStart,
-      required this.repetitions});
+      required this.repetitions,
+      required this.taskSortStrategy});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1284,6 +1212,7 @@ class Setting extends DataClass implements Insertable<Setting> {
     map['break_duration'] = Variable<int>(breakDuration);
     map['auto_start'] = Variable<bool>(autoStart);
     map['repetitions'] = Variable<int>(repetitions);
+    map['task_sort_strategy'] = Variable<String>(taskSortStrategy);
     return map;
   }
 
@@ -1294,6 +1223,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       breakDuration: Value(breakDuration),
       autoStart: Value(autoStart),
       repetitions: Value(repetitions),
+      taskSortStrategy: Value(taskSortStrategy),
     );
   }
 
@@ -1306,6 +1236,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       breakDuration: serializer.fromJson<int>(json['breakDuration']),
       autoStart: serializer.fromJson<bool>(json['autoStart']),
       repetitions: serializer.fromJson<int>(json['repetitions']),
+      taskSortStrategy: serializer.fromJson<String>(json['taskSortStrategy']),
     );
   }
   @override
@@ -1317,6 +1248,7 @@ class Setting extends DataClass implements Insertable<Setting> {
       'breakDuration': serializer.toJson<int>(breakDuration),
       'autoStart': serializer.toJson<bool>(autoStart),
       'repetitions': serializer.toJson<int>(repetitions),
+      'taskSortStrategy': serializer.toJson<String>(taskSortStrategy),
     };
   }
 
@@ -1325,13 +1257,15 @@ class Setting extends DataClass implements Insertable<Setting> {
           int? workDuration,
           int? breakDuration,
           bool? autoStart,
-          int? repetitions}) =>
+          int? repetitions,
+          String? taskSortStrategy}) =>
       Setting(
         userId: userId ?? this.userId,
         workDuration: workDuration ?? this.workDuration,
         breakDuration: breakDuration ?? this.breakDuration,
         autoStart: autoStart ?? this.autoStart,
         repetitions: repetitions ?? this.repetitions,
+        taskSortStrategy: taskSortStrategy ?? this.taskSortStrategy,
       );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
@@ -1345,6 +1279,9 @@ class Setting extends DataClass implements Insertable<Setting> {
       autoStart: data.autoStart.present ? data.autoStart.value : this.autoStart,
       repetitions:
           data.repetitions.present ? data.repetitions.value : this.repetitions,
+      taskSortStrategy: data.taskSortStrategy.present
+          ? data.taskSortStrategy.value
+          : this.taskSortStrategy,
     );
   }
 
@@ -1355,14 +1292,15 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('workDuration: $workDuration, ')
           ..write('breakDuration: $breakDuration, ')
           ..write('autoStart: $autoStart, ')
-          ..write('repetitions: $repetitions')
+          ..write('repetitions: $repetitions, ')
+          ..write('taskSortStrategy: $taskSortStrategy')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(userId, workDuration, breakDuration, autoStart, repetitions);
+  int get hashCode => Object.hash(userId, workDuration, breakDuration,
+      autoStart, repetitions, taskSortStrategy);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1371,7 +1309,8 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.workDuration == this.workDuration &&
           other.breakDuration == this.breakDuration &&
           other.autoStart == this.autoStart &&
-          other.repetitions == this.repetitions);
+          other.repetitions == this.repetitions &&
+          other.taskSortStrategy == this.taskSortStrategy);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
@@ -1380,6 +1319,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<int> breakDuration;
   final Value<bool> autoStart;
   final Value<int> repetitions;
+  final Value<String> taskSortStrategy;
   final Value<int> rowid;
   const SettingsCompanion({
     this.userId = const Value.absent(),
@@ -1387,6 +1327,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.breakDuration = const Value.absent(),
     this.autoStart = const Value.absent(),
     this.repetitions = const Value.absent(),
+    this.taskSortStrategy = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SettingsCompanion.insert({
@@ -1395,6 +1336,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.breakDuration = const Value.absent(),
     this.autoStart = const Value.absent(),
     this.repetitions = const Value.absent(),
+    this.taskSortStrategy = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : userId = Value(userId);
   static Insertable<Setting> custom({
@@ -1403,6 +1345,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<int>? breakDuration,
     Expression<bool>? autoStart,
     Expression<int>? repetitions,
+    Expression<String>? taskSortStrategy,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1411,6 +1354,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (breakDuration != null) 'break_duration': breakDuration,
       if (autoStart != null) 'auto_start': autoStart,
       if (repetitions != null) 'repetitions': repetitions,
+      if (taskSortStrategy != null) 'task_sort_strategy': taskSortStrategy,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1421,6 +1365,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       Value<int>? breakDuration,
       Value<bool>? autoStart,
       Value<int>? repetitions,
+      Value<String>? taskSortStrategy,
       Value<int>? rowid}) {
     return SettingsCompanion(
       userId: userId ?? this.userId,
@@ -1428,6 +1373,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       breakDuration: breakDuration ?? this.breakDuration,
       autoStart: autoStart ?? this.autoStart,
       repetitions: repetitions ?? this.repetitions,
+      taskSortStrategy: taskSortStrategy ?? this.taskSortStrategy,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1450,6 +1396,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (repetitions.present) {
       map['repetitions'] = Variable<int>(repetitions.value);
     }
+    if (taskSortStrategy.present) {
+      map['task_sort_strategy'] = Variable<String>(taskSortStrategy.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1464,6 +1413,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('breakDuration: $breakDuration, ')
           ..write('autoStart: $autoStart, ')
           ..write('repetitions: $repetitions, ')
+          ..write('taskSortStrategy: $taskSortStrategy, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1871,26 +1821,22 @@ abstract class _$AppDatabase extends GeneratedDatabase {
 
 typedef $$UsersTableCreateCompanionBuilder = UsersCompanion Function({
   required String id,
-  required String email,
   required String fullName,
   required DateTime birthDate,
   Value<String?> gender,
   Value<String?> location,
   Value<String?> occupation,
-  Value<String?> avatarPath,
   Value<Uint8List?> photo,
   required DateTime createdAt,
   Value<int> rowid,
 });
 typedef $$UsersTableUpdateCompanionBuilder = UsersCompanion Function({
   Value<String> id,
-  Value<String> email,
   Value<String> fullName,
   Value<DateTime> birthDate,
   Value<String?> gender,
   Value<String?> location,
   Value<String?> occupation,
-  Value<String?> avatarPath,
   Value<Uint8List?> photo,
   Value<DateTime> createdAt,
   Value<int> rowid,
@@ -1907,9 +1853,6 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
   ColumnFilters<String> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get email => $composableBuilder(
-      column: $table.email, builder: (column) => ColumnFilters(column));
-
   ColumnFilters<String> get fullName => $composableBuilder(
       column: $table.fullName, builder: (column) => ColumnFilters(column));
 
@@ -1924,9 +1867,6 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<String> get occupation => $composableBuilder(
       column: $table.occupation, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get avatarPath => $composableBuilder(
-      column: $table.avatarPath, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<Uint8List> get photo => $composableBuilder(
       column: $table.photo, builder: (column) => ColumnFilters(column));
@@ -1947,9 +1887,6 @@ class $$UsersTableOrderingComposer
   ColumnOrderings<String> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get email => $composableBuilder(
-      column: $table.email, builder: (column) => ColumnOrderings(column));
-
   ColumnOrderings<String> get fullName => $composableBuilder(
       column: $table.fullName, builder: (column) => ColumnOrderings(column));
 
@@ -1964,9 +1901,6 @@ class $$UsersTableOrderingComposer
 
   ColumnOrderings<String> get occupation => $composableBuilder(
       column: $table.occupation, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get avatarPath => $composableBuilder(
-      column: $table.avatarPath, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<Uint8List> get photo => $composableBuilder(
       column: $table.photo, builder: (column) => ColumnOrderings(column));
@@ -1987,9 +1921,6 @@ class $$UsersTableAnnotationComposer
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<String> get email =>
-      $composableBuilder(column: $table.email, builder: (column) => column);
-
   GeneratedColumn<String> get fullName =>
       $composableBuilder(column: $table.fullName, builder: (column) => column);
 
@@ -2004,9 +1935,6 @@ class $$UsersTableAnnotationComposer
 
   GeneratedColumn<String> get occupation => $composableBuilder(
       column: $table.occupation, builder: (column) => column);
-
-  GeneratedColumn<String> get avatarPath => $composableBuilder(
-      column: $table.avatarPath, builder: (column) => column);
 
   GeneratedColumn<Uint8List> get photo =>
       $composableBuilder(column: $table.photo, builder: (column) => column);
@@ -2039,52 +1967,44 @@ class $$UsersTableTableManager extends RootTableManager<
               $$UsersTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback: ({
             Value<String> id = const Value.absent(),
-            Value<String> email = const Value.absent(),
             Value<String> fullName = const Value.absent(),
             Value<DateTime> birthDate = const Value.absent(),
             Value<String?> gender = const Value.absent(),
             Value<String?> location = const Value.absent(),
             Value<String?> occupation = const Value.absent(),
-            Value<String?> avatarPath = const Value.absent(),
             Value<Uint8List?> photo = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               UsersCompanion(
             id: id,
-            email: email,
             fullName: fullName,
             birthDate: birthDate,
             gender: gender,
             location: location,
             occupation: occupation,
-            avatarPath: avatarPath,
             photo: photo,
             createdAt: createdAt,
             rowid: rowid,
           ),
           createCompanionCallback: ({
             required String id,
-            required String email,
             required String fullName,
             required DateTime birthDate,
             Value<String?> gender = const Value.absent(),
             Value<String?> location = const Value.absent(),
             Value<String?> occupation = const Value.absent(),
-            Value<String?> avatarPath = const Value.absent(),
             Value<Uint8List?> photo = const Value.absent(),
             required DateTime createdAt,
             Value<int> rowid = const Value.absent(),
           }) =>
               UsersCompanion.insert(
             id: id,
-            email: email,
             fullName: fullName,
             birthDate: birthDate,
             gender: gender,
             location: location,
             occupation: occupation,
-            avatarPath: avatarPath,
             photo: photo,
             createdAt: createdAt,
             rowid: rowid,
@@ -2463,6 +2383,7 @@ typedef $$SettingsTableCreateCompanionBuilder = SettingsCompanion Function({
   Value<int> breakDuration,
   Value<bool> autoStart,
   Value<int> repetitions,
+  Value<String> taskSortStrategy,
   Value<int> rowid,
 });
 typedef $$SettingsTableUpdateCompanionBuilder = SettingsCompanion Function({
@@ -2471,6 +2392,7 @@ typedef $$SettingsTableUpdateCompanionBuilder = SettingsCompanion Function({
   Value<int> breakDuration,
   Value<bool> autoStart,
   Value<int> repetitions,
+  Value<String> taskSortStrategy,
   Value<int> rowid,
 });
 
@@ -2497,6 +2419,10 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<int> get repetitions => $composableBuilder(
       column: $table.repetitions, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get taskSortStrategy => $composableBuilder(
+      column: $table.taskSortStrategy,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$SettingsTableOrderingComposer
@@ -2524,6 +2450,10 @@ class $$SettingsTableOrderingComposer
 
   ColumnOrderings<int> get repetitions => $composableBuilder(
       column: $table.repetitions, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get taskSortStrategy => $composableBuilder(
+      column: $table.taskSortStrategy,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$SettingsTableAnnotationComposer
@@ -2549,6 +2479,9 @@ class $$SettingsTableAnnotationComposer
 
   GeneratedColumn<int> get repetitions => $composableBuilder(
       column: $table.repetitions, builder: (column) => column);
+
+  GeneratedColumn<String> get taskSortStrategy => $composableBuilder(
+      column: $table.taskSortStrategy, builder: (column) => column);
 }
 
 class $$SettingsTableTableManager extends RootTableManager<
@@ -2579,6 +2512,7 @@ class $$SettingsTableTableManager extends RootTableManager<
             Value<int> breakDuration = const Value.absent(),
             Value<bool> autoStart = const Value.absent(),
             Value<int> repetitions = const Value.absent(),
+            Value<String> taskSortStrategy = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               SettingsCompanion(
@@ -2587,6 +2521,7 @@ class $$SettingsTableTableManager extends RootTableManager<
             breakDuration: breakDuration,
             autoStart: autoStart,
             repetitions: repetitions,
+            taskSortStrategy: taskSortStrategy,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -2595,6 +2530,7 @@ class $$SettingsTableTableManager extends RootTableManager<
             Value<int> breakDuration = const Value.absent(),
             Value<bool> autoStart = const Value.absent(),
             Value<int> repetitions = const Value.absent(),
+            Value<String> taskSortStrategy = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               SettingsCompanion.insert(
@@ -2603,6 +2539,7 @@ class $$SettingsTableTableManager extends RootTableManager<
             breakDuration: breakDuration,
             autoStart: autoStart,
             repetitions: repetitions,
+            taskSortStrategy: taskSortStrategy,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

@@ -54,16 +54,10 @@
     "schemas": {
       "LoginRequest": {
         "required": [
-          "email",
           "password"
         ],
         "type": "object",
         "properties": {
-          "email": {
-            "minLength": 1,
-            "type": "string",
-            "format": "email"
-          },
           "password": {
             "minLength": 1,
             "type": "string"
@@ -74,17 +68,11 @@
       "RegisterRequest": {
         "required": [
           "birthDate",
-          "email",
           "fullName",
           "password"
         ],
         "type": "object",
         "properties": {
-          "email": {
-            "minLength": 1,
-            "type": "string",
-            "format": "email"
-          },
           "password": {
             "minLength": 6,
             "type": "string"

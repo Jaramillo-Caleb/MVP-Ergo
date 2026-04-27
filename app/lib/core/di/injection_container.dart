@@ -24,7 +24,7 @@ Future<void> init() async {
     developer.log("DI ERROR: No se pudo inicializar el motor nativo: $e");
   }
 
-  sl.registerLazySingleton(() => NativeBridge());
+  sl.registerLazySingleton(() => nativeBridge);
 
   sl.registerLazySingleton(() => ProfileService(db: sl()));
 

@@ -18,28 +18,31 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
-  String _userName = "Usuario";
-  User? _currentUser;
+  late final ProfileService _profileService;
 
   @override
   void initState() {
     super.initState();
-    _loadUserProfile();
+    _profileService = GetIt.instance<ProfileService>();
+    _profileService.addListener(_onProfileChanged);
+    _profileService.getProfile();
   }
 
-  Future<void> _loadUserProfile() async {
-    final profileService = GetIt.instance<ProfileService>();
-    final user = await profileService.getProfile();
-    if (user != null && mounted) {
-      setState(() {
-        _currentUser = user;
-        _userName = user.fullName.split(' ')[0];
-      });
-    }
+  @override
+  void dispose() {
+    _profileService.removeListener(_onProfileChanged);
+    super.dispose();
+  }
+
+  void _onProfileChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = _profileService.profile;
+    final userName = user?.fullName.split(' ')[0] ?? "Usuario";
+
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: Row(
@@ -51,7 +54,7 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               children: [
                 const SizedBox(height: 40),
-                _buildProfileSection(),
+                _buildProfileSection(user, userName),
                 const SizedBox(height: 40),
                 _buildMenuItem(0, "Inicio", Icons.home_filled),
                 _buildMenuItem(1, "Tareas", Icons.task_alt),
@@ -66,18 +69,18 @@ class _HomePageState extends State<HomePage> {
           ),
           // Main Content
           Expanded(
-            child: _getContentForIndex(_selectedIndex),
+            child: _getContentForIndex(_selectedIndex, userName),
           ),
         ],
       ),
     );
   }
 
-  Widget _getContentForIndex(int index) {
+  Widget _getContentForIndex(int index, String userName) {
     switch (index) {
       case 0:
         return DashboardPage(
-          userName: _userName,
+          userName: userName,
           onNavigateToIndex: (idx) => setState(() => _selectedIndex = idx),
         );
       case 1:
@@ -114,22 +117,20 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildProfileSection() {
+  Widget _buildProfileSection(User? user, String userName) {
     return Column(
       children: [
         CircleAvatar(
-          radius: 35,
+          radius: 50,
           backgroundColor: Colors.grey[800],
-          backgroundImage: _currentUser?.photo != null
-              ? MemoryImage(_currentUser!.photo!)
-              : null,
-          child: _currentUser?.photo == null
+          backgroundImage: user?.photo != null ? MemoryImage(user!.photo!) : null,
+          child: user?.photo == null
               ? const Icon(Icons.person, size: 40, color: Colors.white)
               : null,
         ),
         const SizedBox(height: 12),
         Text(
-          _userName,
+          userName,
           style: const TextStyle(
               color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
         ),

@@ -79,26 +79,19 @@ public static class Bridge
     }
 
     [UnmanagedCallersOnly(EntryPoint = "process_frame")]
-    public static CalculationResult ProcessFrame(IntPtr imagePtr, int width, int height, IntPtr referencePtr)
+    public static CalculationResult ProcessFrame(IntPtr imagePtr, int size, IntPtr referencePtr)
     {
         if (_visionService == null || _mathEngine == null)
             return new CalculationResult { Score = 0, IsAlert = false, MessagePtr = IntPtr.Zero };
 
-        // Inferencia
         try 
         {
-            // 1. Extracción de landmarks usando tu VisionService (OpenCV + ONNX)
-            // Devuelve double[5][]
-            double[][] landmarks = _visionService.ExtractLandmarks(imagePtr, width, height);
-            
-            // 2. Normalización y aplanado (Lógica ex-Python portada a MathEngine)
+            double[][] landmarks = _visionService.ExtractLandmarks(imagePtr, size);
             double[] currentVector = _mathEngine.FlattenAndNormalize(landmarks);
 
-            // 3. Obtener el vector de referencia enviado desde Dart
             double[] referenceVector = new double[15];
             Marshal.Copy(referencePtr, referenceVector, 0, 15);
 
-            // 4. Comparación mediante Kernel RBF (Devuelve CalculationResult)
             return _mathEngine.Compare(currentVector, referenceVector);
         }
         catch (Exception ex)
@@ -106,5 +99,57 @@ public static class Bridge
             Log($"Error en ciclo de procesamiento: {ex.Message}");
             return new CalculationResult { Score = 0, IsAlert = true, MessagePtr = IntPtr.Zero };
         }
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "extract_vectors")]
+    public static unsafe int ExtractVectors(byte** imagesPtr, int* sizesPtr, int count, double* outputVectorsPtr)
+    {
+        Log($"--- [C#]: Inicio ExtractVectors Directo. Count: {count}");
+    
+        if (_visionService == null || _mathEngine == null) return 0;
+    
+        int successfulExtractions = 0;
+    
+        for (int i = 0; i < count; i++)
+        {
+            try 
+            {
+                // Acceso directo por punteros (como en C++)
+                byte* currentImageBytes = imagesPtr[i];
+                int size = sizesPtr[i];
+    
+                if (currentImageBytes == null || size <= 0) {
+                    Log($"--- [C# ERROR]: Frame {i} tiene puntero nulo o tamaño 0");
+                    continue;
+                }
+    
+                Log($"--- [C#]: Procesando frame {i} ({size} bytes)...");
+    
+                // Convertimos el puntero crudo a IntPtr para el VisionService
+                IntPtr imgIntPtr = (IntPtr)currentImageBytes;
+                double[][] landmarks = _visionService.ExtractLandmarks(imgIntPtr, size);
+                
+                if (landmarks == null || landmarks.Length == 0) continue;
+    
+                double[] vector = _mathEngine.FlattenAndNormalize(landmarks);
+                
+                // Copiar el vector al buffer de salida
+                // Cada vector ocupa 15 doubles (15 * 8 bytes)
+                double* dest = outputVectorsPtr + (successfulExtractions * 15);
+                for (int j = 0; j < 15; j++) {
+                    dest[j] = vector[j];
+                }
+                
+                successfulExtractions++;
+                Log($"--- [C#]: Frame {i} OK.");
+            }
+            catch (Exception ex)
+            {
+                Log($"--- [C# CRITICAL] Frame {i}: {ex.Message}");
+            }
+        }
+        
+        Log($"--- [C#]: Total exitosos: {successfulExtractions}");
+        return successfulExtractions;
     }
 }

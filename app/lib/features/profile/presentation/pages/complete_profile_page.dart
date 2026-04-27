@@ -14,13 +14,8 @@ import 'package:ergo_desktop/features/profile/presentation/widgets/profile_butto
 import 'package:ergo_desktop/features/profile/presentation/widgets/profile_label.dart';
 import 'package:ergo_desktop/features/profile/data/services/profile_service.dart';
 import 'package:ergo_desktop/features/home/presentation/pages/home_page.dart';
+import 'package:ergo_desktop/core/models/location_model.dart';
 
-class LocationModel {
-  final String municipio;
-  final String departamento;
-  LocationModel({required this.municipio, required this.departamento});
-  String get fullName => "$municipio, $departamento";
-}
 
 class CompleteProfilePage extends StatefulWidget {
   const CompleteProfilePage({super.key});

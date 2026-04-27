@@ -161,12 +161,13 @@ class WorkSessionService extends ChangeNotifier {
   }
 
   void resetDefaults() {
-    _settingsCache = PomodoroSettings(
+    _settingsCache = const PomodoroSettings(
       userId: 'me',
       workDuration: 25,
       breakDuration: 5,
       autoStart: false,
       repetitions: 1,
+      taskSortStrategy: 'Prioridad',
     );
     if (_state == PomodoroState.idle) {
       _secondsRemaining = 25 * 60;
@@ -190,6 +191,7 @@ class WorkSessionService extends ChangeNotifier {
           breakDuration: row.breakDuration,
           autoStart: row.autoStart,
           repetitions: row.repetitions,
+          taskSortStrategy: row.taskSortStrategy,
         );
       } else {
         _settingsCache = const PomodoroSettings(
@@ -198,6 +200,7 @@ class WorkSessionService extends ChangeNotifier {
           breakDuration: 5,
           autoStart: false,
           repetitions: 1,
+          taskSortStrategy: 'Prioridad',
         );
       }
     } catch (e) {
@@ -208,6 +211,7 @@ class WorkSessionService extends ChangeNotifier {
         breakDuration: 5,
         autoStart: false,
         repetitions: 1,
+        taskSortStrategy: 'Prioridad',
       );
     }
     return _settingsCache;
@@ -222,6 +226,7 @@ class WorkSessionService extends ChangeNotifier {
         breakDuration: Value(settings.breakDuration),
         autoStart: Value(settings.autoStart),
         repetitions: Value(settings.repetitions),
+        taskSortStrategy: Value(settings.taskSortStrategy),
       );
       await _db.into(_db.settings).insertOnConflictUpdate(entry);
     } catch (e) {

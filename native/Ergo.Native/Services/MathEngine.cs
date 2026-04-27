@@ -5,8 +5,8 @@ namespace Ergo.Native.Services;
 
 public class MathEngine
 {
-    private const double SimilarityThreshold = 0.85;
-    private const double Sigma = 5.0; // Sensibilidad de la campana de Gauss
+    private const double SimilarityThreshold = 0.78;
+    private const double Sigma = 7.0; // Sensibilidad de la campana de Gauss
 
     public double[] FlattenAndNormalize(double[][] landmarks)
     {

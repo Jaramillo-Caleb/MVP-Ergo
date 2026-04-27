@@ -11,13 +11,11 @@ part 'app_database.g.dart';
 
 class Users extends Table {
   TextColumn get id => text()();
-  TextColumn get email => text()();
   TextColumn get fullName => text().named('full_name')();
   DateTimeColumn get birthDate => dateTime().named('birth_date')();
   TextColumn get gender => text().nullable()();
   TextColumn get location => text().nullable()();
   TextColumn get occupation => text().nullable()();
-  TextColumn get avatarPath => text().nullable().named('avatar_path')();
   BlobColumn get photo => blob().nullable()();
   DateTimeColumn get createdAt => dateTime().named('created_at')();
 
@@ -56,6 +54,8 @@ class Settings extends Table {
   BoolColumn get autoStart =>
       boolean().named('auto_start').withDefault(const Constant(false))();
   IntColumn get repetitions => integer().withDefault(const Constant(1))();
+  TextColumn get taskSortStrategy =>
+      text().named('task_sort_strategy').withDefault(const Constant("Prioridad"))();
 
   @override
   Set<Column> get primaryKey => {userId};
@@ -80,7 +80,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -93,6 +93,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 5) {
             await m.addColumn(users, users.photo);
+          }
+          if (from < 7) {
+            await m.addColumn(settings, settings.taskSortStrategy);
           }
         },
       );

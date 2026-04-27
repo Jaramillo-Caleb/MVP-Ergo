@@ -2,7 +2,6 @@ import 'package:equatable/equatable.dart';
 
 class UserModel extends Equatable {
   final String id;
-  final String email;
   final String fullName;
   final DateTime birthDate;
   final String? gender;
@@ -12,7 +11,6 @@ class UserModel extends Equatable {
 
   const UserModel({
     required this.id,
-    required this.email,
     required this.fullName,
     required this.birthDate,
     this.gender,
@@ -23,7 +21,6 @@ class UserModel extends Equatable {
 
   Map<String, dynamic> toMap() => {
         'id': id,
-        'email': email,
         'full_name': fullName,
         'birth_date': birthDate.toIso8601String(),
         'gender': gender,
@@ -34,7 +31,6 @@ class UserModel extends Equatable {
 
   factory UserModel.fromMap(Map<String, dynamic> map) => UserModel(
         id: map['id'],
-        email: map['email'],
         fullName: map['full_name'],
         birthDate: DateTime.parse(map['birth_date']),
         gender: map['gender'],
@@ -44,5 +40,5 @@ class UserModel extends Equatable {
       );
 
   @override
-  List<Object?> get props => [id, email, fullName];
+  List<Object?> get props => [id, fullName];
 }

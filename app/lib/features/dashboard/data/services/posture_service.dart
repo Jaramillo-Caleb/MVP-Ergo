@@ -25,15 +25,18 @@ class PostureService {
           alias: e.alias,
           isPersistent: e.isPersistent,
           createdAt: e.createdAt,
+          vector: e.vector,
         );
       }).toList();
     } catch (e, stackTrace) {
-      logger.e("Error fetching local postures", error: e, stackTrace: stackTrace);
+      logger.e("Error fetching local postures",
+          error: e, stackTrace: stackTrace);
     }
     return [];
   }
 
-  Future<PostureReferenceModel?> createPosture(String alias, List<double> vector) async {
+  Future<PostureReferenceModel?> createPosture(
+      String alias, List<double> vector) async {
     try {
       final id = _uuid.v4();
       final vectorStr = vector.join(',');
@@ -48,31 +51,71 @@ class PostureService {
       );
 
       await _db.into(_db.referencePoses).insert(entry);
-      
+
       return PostureReferenceModel(
         id: id,
         alias: alias,
         isPersistent: true,
         createdAt: now,
+        vector: vectorStr,
       );
     } catch (e, stackTrace) {
-      logger.e("Error creating local posture", error: e, stackTrace: stackTrace);
+      logger.e("Error creating local posture",
+          error: e, stackTrace: stackTrace);
     }
     return null;
   }
 
   Future<bool> deletePosture(String postureId) async {
     try {
-      final count = await (_db.delete(_db.referencePoses)..where((t) => t.id.equals(postureId))).go();
+      final count = await (_db.delete(_db.referencePoses)
+            ..where((t) => t.id.equals(postureId)))
+          .go();
       return count > 0;
     } catch (e, stackTrace) {
-      logger.e("Error deleting local posture", error: e, stackTrace: stackTrace);
+      logger.e("Error deleting local posture",
+          error: e, stackTrace: stackTrace);
+      return false;
+    }
+  }
+
+  Future<bool> updatePosture(String id, String alias) async {
+    try {
+      final count = await (_db.update(_db.referencePoses)
+            ..where((t) => t.id.equals(id)))
+          .write(ReferencePosesCompanion(alias: Value(alias)));
+      return count > 0;
+    } catch (e, stackTrace) {
+      logger.e("Error updating local posture",
+          error: e, stackTrace: stackTrace);
       return false;
     }
   }
 
   Future<List<double>?> computeCalibration(List<Uint8List> imagesBytes) async {
-    return null; 
+    if (imagesBytes.isEmpty) return null;
+
+    try {
+      final vectors = _bridge.extractMultipleVectors(imagesBytes);
+      if (vectors.isEmpty) return null;
+
+      // Calcular el promedio de los vectores extraídos
+      final List<double> averageVector = List<double>.filled(15, 0.0);
+      for (final v in vectors) {
+        for (int i = 0; i < 15; i++) {
+          averageVector[i] += v[i];
+        }
+      }
+
+      for (int i = 0; i < 15; i++) {
+        averageVector[i] /= vectors.length;
+      }
+
+      return averageVector;
+    } catch (e) {
+      logger.e("Error en calibración nativa", error: e);
+    }
+    return null;
   }
 
   Future<bool?> monitorPosture(List<double> referenceVector, List<int> frame) async {
