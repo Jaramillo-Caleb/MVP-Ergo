@@ -19,6 +19,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   late final ProfileService _profileService;
+  late final List<Widget> _pages;
 
   @override
   void initState() {
@@ -26,6 +27,17 @@ class _HomePageState extends State<HomePage> {
     _profileService = GetIt.instance<ProfileService>();
     _profileService.addListener(_onProfileChanged);
     _profileService.getProfile();
+
+    _pages = [
+      DashboardPage(
+        onNavigateToIndex: (idx) => setState(() => _selectedIndex = idx),
+      ),
+      const TasksPage(),
+      const PomodoroPage(),
+      _buildGenericPage("Reportes y Estadísticas"),
+      _buildGenericPage("Página en Construcción"),
+      const SettingsPage(),
+    ];
   }
 
   @override
@@ -69,31 +81,14 @@ class _HomePageState extends State<HomePage> {
           ),
           // Main Content
           Expanded(
-            child: _getContentForIndex(_selectedIndex, userName),
+            child: IndexedStack(
+              index: _selectedIndex,
+              children: _pages,
+            ),
           ),
         ],
       ),
     );
-  }
-
-  Widget _getContentForIndex(int index, String userName) {
-    switch (index) {
-      case 0:
-        return DashboardPage(
-          userName: userName,
-          onNavigateToIndex: (idx) => setState(() => _selectedIndex = idx),
-        );
-      case 1:
-        return const TasksPage();
-      case 2:
-        return const PomodoroPage();
-      case 3:
-        return _buildGenericPage("Reportes y Estadísticas");
-      case 5:
-        return const SettingsPage();
-      default:
-        return _buildGenericPage("Página en Construcción");
-    }
   }
 
   Widget _buildGenericPage(String title) {
@@ -123,7 +118,8 @@ class _HomePageState extends State<HomePage> {
         CircleAvatar(
           radius: 50,
           backgroundColor: Colors.grey[800],
-          backgroundImage: user?.photo != null ? MemoryImage(user!.photo!) : null,
+          backgroundImage:
+              user?.photo != null ? MemoryImage(user!.photo!) : null,
           child: user?.photo == null
               ? const Icon(Icons.person, size: 40, color: Colors.white)
               : null,

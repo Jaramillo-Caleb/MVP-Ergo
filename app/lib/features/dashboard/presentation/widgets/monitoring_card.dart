@@ -26,11 +26,15 @@ class MonitoringCard extends StatelessWidget {
         cameraController!.value.isInitialized) {
       child = _buildLiveCameraView();
     } else if (mode == AppMode.monitoring) {
-      if (postureStatus == PostureStatus.userNotFound) {
+      if (postureStatus == PostureStatus.verifying) {
+        child = _buildVerifyingView();
+      } else if (postureStatus == PostureStatus.userNotFound) {
         child = _buildUserNotFoundView();
       } else {
         child = _buildActiveMonitoringView();
       }
+    } else if (mode == AppMode.pausedMonitoring) {
+      child = _buildPausedView();
     } else {
       child = _buildInactiveView();
     }
@@ -113,6 +117,38 @@ class MonitoringCard extends StatelessWidget {
     );
   }
 
+  Widget _buildVerifyingView() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const SizedBox(
+          width: 48,
+          height: 48,
+          child: CircularProgressIndicator(
+            color: Color(0xFF2962FF),
+            strokeWidth: 3,
+          ),
+        ),
+        const SizedBox(height: 20),
+        const Text(
+          "Verificando presencia...",
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          "Confirmando ausencia para ahorro de energía",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.4), fontSize: 14),
+        ),
+      ],
+    );
+  }
+
   Widget _buildUserNotFoundView() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -130,10 +166,35 @@ class MonitoringCard extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          "Entrando en modo de ahorro de energía (30s)",
+          "Modo ahorro: Reintentando en 30 segundos",
           textAlign: TextAlign.center,
           style: TextStyle(
               color: Colors.white.withValues(alpha: 0.4), fontSize: 14),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPausedView() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.pause_circle_outline_rounded,
+            size: 64, color: Colors.white.withValues(alpha: 0.2)),
+        const SizedBox(height: 20),
+        const Text(
+          "Monitoreo pausado",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "Pulsa reanudar para continuar",
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
         ),
       ],
     );

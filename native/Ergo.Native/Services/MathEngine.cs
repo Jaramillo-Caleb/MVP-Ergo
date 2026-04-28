@@ -5,57 +5,89 @@ namespace Ergo.Native.Services;
 
 public class MathEngine
 {
-    private const double SimilarityThreshold = 0.78;
-    private const double Sigma = 7.0; // Sensibilidad de la campana de Gauss
+    private const int LandmarkCount = 5;
+    private const int VectorSize = LandmarkCount * 3;
+    private const double FrameSize = 256.0;
 
     public double[] FlattenAndNormalize(double[][] landmarks)
     {
-        int n = landmarks.Length; // 5 puntos
-        double[] flattened = new double[n * 3];
-
-        // 1. Calcular Media (Cálculo del centroide)
-        double mX = 0, mY = 0, mZ = 0;
-        foreach (var p in landmarks) { mX += p[0]; mY += p[1]; mZ += p[2]; }
-        mX /= n; mY /= n; mZ /= n;
-
-        // 2. Calcular Desviación Estándar (Escalamiento)
-        double variance = 0;
-        foreach (var p in landmarks)
+        double[] flattened = new double[VectorSize];
+        for (int i = 0; i < landmarks.Length; i++)
         {
-            variance += Math.Pow(p[0] - mX, 2) + Math.Pow(p[1] - mY, 2) + Math.Pow(p[2] - mZ, 2);
+            flattened[i * 3 + 0] = landmarks[i][0];
+            flattened[i * 3 + 1] = landmarks[i][1];
+            flattened[i * 3 + 2] = landmarks[i][2];
         }
-        double stdDev = Math.Sqrt(variance / (n * 3));
-        if (stdDev < 0.001) stdDev = 1.0; // Evitar división por cero
-
-        // 3. Aplicar Z-Score: (x - media) / stdDev
-        for (int i = 0; i < n; i++)
-        {
-            flattened[i * 3 + 0] = (landmarks[i][0] - mX) / stdDev;
-            flattened[i * 3 + 1] = (landmarks[i][1] - mY) / stdDev;
-            flattened[i * 3 + 2] = (landmarks[i][2] - mZ) / stdDev;
-        }
-
         return flattened;
     }
 
-    public CalculationResult Compare(double[] current, double[] reference)
+    public CalculationResult Compare(double[] current, double[] reference, double threshold)
     {
-        // Distancia Euclidiana entre vectores de 15 dimensiones
-        double sumSquares = 0;
-        for (int i = 0; i < current.Length; i++)
-        {
-            sumSquares += Math.Pow(current[i] - reference[i], 2);
-        }
-        double distance = Math.Sqrt(sumSquares);
+        // Puntos: 0:Nose, 1:L-Eye, 2:R-Eye, 3:L-Shoulder, 4:R-Shoulder
+    
+        double refScale = GetDist(reference, 3, 4); // distancia hombros como unidad
+        double curScale = GetDist(current, 3, 4);
+    
+        // Evitar división por cero
+        if (refScale < 1e-6 || curScale < 1e-6)
+            return new CalculationResult { Score = 1.0, IsAlert = 0, MessagePtr = IntPtr.Zero };
 
-        // Convertir distancia a score 0.0 - 1.0 usando Gauss
-        double score = Math.Exp(-distance / Sigma);
-
+        double scaleRatio = curScale / refScale;
+        if (scaleRatio > 1.8 || scaleRatio < 0.4)
+            return new CalculationResult { Score = 1.0, IsAlert = 0, MessagePtr = IntPtr.Zero };
+    
+        // --- 1. SLOUCH: ratio altura cara/hombros (normalizado por escala) ---
+        // Qué tan "alto" está el centro de los ojos respecto a los hombros
+        double refEyeMidY   = (reference[1*3+1] + reference[2*3+1]) / 2.0;
+        double refShoulderMidY = (reference[3*3+1] + reference[4*3+1]) / 2.0;
+        double refHeightRatio = (refShoulderMidY - refEyeMidY) / refScale;
+    
+        double curEyeMidY   = (current[1*3+1] + current[2*3+1]) / 2.0;
+        double curShoulderMidY = (current[3*3+1] + current[4*3+1]) / 2.0;
+        if (curEyeMidY - refEyeMidY > 0.15)
+            return new CalculationResult { Score = 1.0, IsAlert = 0, MessagePtr = IntPtr.Zero };
+        double curHeightRatio = (curShoulderMidY - curEyeMidY) / curScale;
+    
+        double slouchDiff = Math.Abs(curHeightRatio - refHeightRatio);
+        double scoreSlouch = Math.Clamp(1.0 - (slouchDiff * 2.5), 0.0, 1.0);
+    
+        // --- 2. FORWARD HEAD: nariz relativa a hombros en Y (encorvamiento hacia adelante) ---
+        double refNoseToShoulderY = (reference[0*3+1] - refShoulderMidY) / refScale;
+        double curNoseToShoulderY = (current[0*3+1]   - curShoulderMidY) / curScale;
+    
+        double forwardDiff = Math.Abs(curNoseToShoulderY - refNoseToShoulderY);
+        double scoreForward = Math.Clamp(1.0 - (forwardDiff * 2.5), 0.0, 1.0);
+    
+        // --- 3. TILT: ángulo de inclinación lateral de los ojos ---
+        double dx = current[2*3+0] - current[1*3+0];
+        double dy = current[2*3+1] - current[1*3+1];
+        double anguloOjos = Math.Atan2(dy, dx) * (180.0 / Math.PI);
+        double anguloNormalizado = dx < 0
+            ? (anguloOjos > 0 ? anguloOjos - 180.0 : anguloOjos + 180.0)
+            : anguloOjos;
+            
+        double scoreTilt = Math.Clamp(1.0 - (Math.Abs(anguloNormalizado) / 35.0), 0.0, 1.0);
+    
+        // --- Score final ponderado ---
+        double finalScore = (scoreSlouch * 0.40) +
+                            (scoreForward * 0.40) +
+                            (scoreTilt    * 0.20);
+    
         return new CalculationResult
         {
-            Score = score,
-            IsAlert = score < SimilarityThreshold,
-            MessagePtr = IntPtr.Zero 
+            Score = finalScore,
+            IsAlert = (finalScore < threshold) ? 1 : 0,
+            MessagePtr = IntPtr.Zero
         };
     }
+
+    private double GetDist(double[] data, int p1, int p2)
+    {
+        double dx = data[p1 * 3] - data[p2 * 3];
+        double dy = data[p1 * 3 + 1] - data[p2 * 3 + 1];
+        double dz = data[p1 * 3 + 2] - data[p2 * 3 + 2];
+        return Math.Sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    public static CalculationResult NoUser() => new() { Score = 1.0, IsAlert = 0 };
 }

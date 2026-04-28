@@ -1107,6 +1107,24 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant("Prioridad"));
+  static const VerificationMeta _monitoringIntensityMeta =
+      const VerificationMeta('monitoringIntensity');
+  @override
+  late final GeneratedColumn<String> monitoringIntensity =
+      GeneratedColumn<String>('monitoring_intensity', aliasedName, false,
+          type: DriftSqlType.string,
+          requiredDuringInsert: false,
+          defaultValue: const Constant("Medio"));
+  static const VerificationMeta _showCalibrationInstructionsMeta =
+      const VerificationMeta('showCalibrationInstructions');
+  @override
+  late final GeneratedColumn<bool> showCalibrationInstructions =
+      GeneratedColumn<bool>('show_calibration_instructions', aliasedName, false,
+          type: DriftSqlType.bool,
+          requiredDuringInsert: false,
+          defaultConstraints: GeneratedColumn.constraintIsAlways(
+              'CHECK ("show_calibration_instructions" IN (0, 1))'),
+          defaultValue: const Constant(true));
   @override
   List<GeneratedColumn> get $columns => [
         userId,
@@ -1114,7 +1132,9 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         breakDuration,
         autoStart,
         repetitions,
-        taskSortStrategy
+        taskSortStrategy,
+        monitoringIntensity,
+        showCalibrationInstructions
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1160,6 +1180,19 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
           taskSortStrategy.isAcceptableOrUnknown(
               data['task_sort_strategy']!, _taskSortStrategyMeta));
     }
+    if (data.containsKey('monitoring_intensity')) {
+      context.handle(
+          _monitoringIntensityMeta,
+          monitoringIntensity.isAcceptableOrUnknown(
+              data['monitoring_intensity']!, _monitoringIntensityMeta));
+    }
+    if (data.containsKey('show_calibration_instructions')) {
+      context.handle(
+          _showCalibrationInstructionsMeta,
+          showCalibrationInstructions.isAcceptableOrUnknown(
+              data['show_calibration_instructions']!,
+              _showCalibrationInstructionsMeta));
+    }
     return context;
   }
 
@@ -1181,6 +1214,11 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
           .read(DriftSqlType.int, data['${effectivePrefix}repetitions'])!,
       taskSortStrategy: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}task_sort_strategy'])!,
+      monitoringIntensity: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}monitoring_intensity'])!,
+      showCalibrationInstructions: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool,
+          data['${effectivePrefix}show_calibration_instructions'])!,
     );
   }
 
@@ -1197,13 +1235,17 @@ class Setting extends DataClass implements Insertable<Setting> {
   final bool autoStart;
   final int repetitions;
   final String taskSortStrategy;
+  final String monitoringIntensity;
+  final bool showCalibrationInstructions;
   const Setting(
       {required this.userId,
       required this.workDuration,
       required this.breakDuration,
       required this.autoStart,
       required this.repetitions,
-      required this.taskSortStrategy});
+      required this.taskSortStrategy,
+      required this.monitoringIntensity,
+      required this.showCalibrationInstructions});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1213,6 +1255,9 @@ class Setting extends DataClass implements Insertable<Setting> {
     map['auto_start'] = Variable<bool>(autoStart);
     map['repetitions'] = Variable<int>(repetitions);
     map['task_sort_strategy'] = Variable<String>(taskSortStrategy);
+    map['monitoring_intensity'] = Variable<String>(monitoringIntensity);
+    map['show_calibration_instructions'] =
+        Variable<bool>(showCalibrationInstructions);
     return map;
   }
 
@@ -1224,6 +1269,8 @@ class Setting extends DataClass implements Insertable<Setting> {
       autoStart: Value(autoStart),
       repetitions: Value(repetitions),
       taskSortStrategy: Value(taskSortStrategy),
+      monitoringIntensity: Value(monitoringIntensity),
+      showCalibrationInstructions: Value(showCalibrationInstructions),
     );
   }
 
@@ -1237,6 +1284,10 @@ class Setting extends DataClass implements Insertable<Setting> {
       autoStart: serializer.fromJson<bool>(json['autoStart']),
       repetitions: serializer.fromJson<int>(json['repetitions']),
       taskSortStrategy: serializer.fromJson<String>(json['taskSortStrategy']),
+      monitoringIntensity:
+          serializer.fromJson<String>(json['monitoringIntensity']),
+      showCalibrationInstructions:
+          serializer.fromJson<bool>(json['showCalibrationInstructions']),
     );
   }
   @override
@@ -1249,6 +1300,9 @@ class Setting extends DataClass implements Insertable<Setting> {
       'autoStart': serializer.toJson<bool>(autoStart),
       'repetitions': serializer.toJson<int>(repetitions),
       'taskSortStrategy': serializer.toJson<String>(taskSortStrategy),
+      'monitoringIntensity': serializer.toJson<String>(monitoringIntensity),
+      'showCalibrationInstructions':
+          serializer.toJson<bool>(showCalibrationInstructions),
     };
   }
 
@@ -1258,7 +1312,9 @@ class Setting extends DataClass implements Insertable<Setting> {
           int? breakDuration,
           bool? autoStart,
           int? repetitions,
-          String? taskSortStrategy}) =>
+          String? taskSortStrategy,
+          String? monitoringIntensity,
+          bool? showCalibrationInstructions}) =>
       Setting(
         userId: userId ?? this.userId,
         workDuration: workDuration ?? this.workDuration,
@@ -1266,6 +1322,9 @@ class Setting extends DataClass implements Insertable<Setting> {
         autoStart: autoStart ?? this.autoStart,
         repetitions: repetitions ?? this.repetitions,
         taskSortStrategy: taskSortStrategy ?? this.taskSortStrategy,
+        monitoringIntensity: monitoringIntensity ?? this.monitoringIntensity,
+        showCalibrationInstructions:
+            showCalibrationInstructions ?? this.showCalibrationInstructions,
       );
   Setting copyWithCompanion(SettingsCompanion data) {
     return Setting(
@@ -1282,6 +1341,12 @@ class Setting extends DataClass implements Insertable<Setting> {
       taskSortStrategy: data.taskSortStrategy.present
           ? data.taskSortStrategy.value
           : this.taskSortStrategy,
+      monitoringIntensity: data.monitoringIntensity.present
+          ? data.monitoringIntensity.value
+          : this.monitoringIntensity,
+      showCalibrationInstructions: data.showCalibrationInstructions.present
+          ? data.showCalibrationInstructions.value
+          : this.showCalibrationInstructions,
     );
   }
 
@@ -1293,14 +1358,23 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('breakDuration: $breakDuration, ')
           ..write('autoStart: $autoStart, ')
           ..write('repetitions: $repetitions, ')
-          ..write('taskSortStrategy: $taskSortStrategy')
+          ..write('taskSortStrategy: $taskSortStrategy, ')
+          ..write('monitoringIntensity: $monitoringIntensity, ')
+          ..write('showCalibrationInstructions: $showCalibrationInstructions')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(userId, workDuration, breakDuration,
-      autoStart, repetitions, taskSortStrategy);
+  int get hashCode => Object.hash(
+      userId,
+      workDuration,
+      breakDuration,
+      autoStart,
+      repetitions,
+      taskSortStrategy,
+      monitoringIntensity,
+      showCalibrationInstructions);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1310,7 +1384,10 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.breakDuration == this.breakDuration &&
           other.autoStart == this.autoStart &&
           other.repetitions == this.repetitions &&
-          other.taskSortStrategy == this.taskSortStrategy);
+          other.taskSortStrategy == this.taskSortStrategy &&
+          other.monitoringIntensity == this.monitoringIntensity &&
+          other.showCalibrationInstructions ==
+              this.showCalibrationInstructions);
 }
 
 class SettingsCompanion extends UpdateCompanion<Setting> {
@@ -1320,6 +1397,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<bool> autoStart;
   final Value<int> repetitions;
   final Value<String> taskSortStrategy;
+  final Value<String> monitoringIntensity;
+  final Value<bool> showCalibrationInstructions;
   final Value<int> rowid;
   const SettingsCompanion({
     this.userId = const Value.absent(),
@@ -1328,6 +1407,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.autoStart = const Value.absent(),
     this.repetitions = const Value.absent(),
     this.taskSortStrategy = const Value.absent(),
+    this.monitoringIntensity = const Value.absent(),
+    this.showCalibrationInstructions = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SettingsCompanion.insert({
@@ -1337,6 +1418,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.autoStart = const Value.absent(),
     this.repetitions = const Value.absent(),
     this.taskSortStrategy = const Value.absent(),
+    this.monitoringIntensity = const Value.absent(),
+    this.showCalibrationInstructions = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : userId = Value(userId);
   static Insertable<Setting> custom({
@@ -1346,6 +1429,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<bool>? autoStart,
     Expression<int>? repetitions,
     Expression<String>? taskSortStrategy,
+    Expression<String>? monitoringIntensity,
+    Expression<bool>? showCalibrationInstructions,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1355,6 +1440,10 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (autoStart != null) 'auto_start': autoStart,
       if (repetitions != null) 'repetitions': repetitions,
       if (taskSortStrategy != null) 'task_sort_strategy': taskSortStrategy,
+      if (monitoringIntensity != null)
+        'monitoring_intensity': monitoringIntensity,
+      if (showCalibrationInstructions != null)
+        'show_calibration_instructions': showCalibrationInstructions,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1366,6 +1455,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       Value<bool>? autoStart,
       Value<int>? repetitions,
       Value<String>? taskSortStrategy,
+      Value<String>? monitoringIntensity,
+      Value<bool>? showCalibrationInstructions,
       Value<int>? rowid}) {
     return SettingsCompanion(
       userId: userId ?? this.userId,
@@ -1374,6 +1465,9 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       autoStart: autoStart ?? this.autoStart,
       repetitions: repetitions ?? this.repetitions,
       taskSortStrategy: taskSortStrategy ?? this.taskSortStrategy,
+      monitoringIntensity: monitoringIntensity ?? this.monitoringIntensity,
+      showCalibrationInstructions:
+          showCalibrationInstructions ?? this.showCalibrationInstructions,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1399,6 +1493,13 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (taskSortStrategy.present) {
       map['task_sort_strategy'] = Variable<String>(taskSortStrategy.value);
     }
+    if (monitoringIntensity.present) {
+      map['monitoring_intensity'] = Variable<String>(monitoringIntensity.value);
+    }
+    if (showCalibrationInstructions.present) {
+      map['show_calibration_instructions'] =
+          Variable<bool>(showCalibrationInstructions.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1414,6 +1515,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('autoStart: $autoStart, ')
           ..write('repetitions: $repetitions, ')
           ..write('taskSortStrategy: $taskSortStrategy, ')
+          ..write('monitoringIntensity: $monitoringIntensity, ')
+          ..write('showCalibrationInstructions: $showCalibrationInstructions, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2384,6 +2487,8 @@ typedef $$SettingsTableCreateCompanionBuilder = SettingsCompanion Function({
   Value<bool> autoStart,
   Value<int> repetitions,
   Value<String> taskSortStrategy,
+  Value<String> monitoringIntensity,
+  Value<bool> showCalibrationInstructions,
   Value<int> rowid,
 });
 typedef $$SettingsTableUpdateCompanionBuilder = SettingsCompanion Function({
@@ -2393,6 +2498,8 @@ typedef $$SettingsTableUpdateCompanionBuilder = SettingsCompanion Function({
   Value<bool> autoStart,
   Value<int> repetitions,
   Value<String> taskSortStrategy,
+  Value<String> monitoringIntensity,
+  Value<bool> showCalibrationInstructions,
   Value<int> rowid,
 });
 
@@ -2422,6 +2529,14 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<String> get taskSortStrategy => $composableBuilder(
       column: $table.taskSortStrategy,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get monitoringIntensity => $composableBuilder(
+      column: $table.monitoringIntensity,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get showCalibrationInstructions => $composableBuilder(
+      column: $table.showCalibrationInstructions,
       builder: (column) => ColumnFilters(column));
 }
 
@@ -2454,6 +2569,14 @@ class $$SettingsTableOrderingComposer
   ColumnOrderings<String> get taskSortStrategy => $composableBuilder(
       column: $table.taskSortStrategy,
       builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get monitoringIntensity => $composableBuilder(
+      column: $table.monitoringIntensity,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get showCalibrationInstructions => $composableBuilder(
+      column: $table.showCalibrationInstructions,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$SettingsTableAnnotationComposer
@@ -2482,6 +2605,12 @@ class $$SettingsTableAnnotationComposer
 
   GeneratedColumn<String> get taskSortStrategy => $composableBuilder(
       column: $table.taskSortStrategy, builder: (column) => column);
+
+  GeneratedColumn<String> get monitoringIntensity => $composableBuilder(
+      column: $table.monitoringIntensity, builder: (column) => column);
+
+  GeneratedColumn<bool> get showCalibrationInstructions => $composableBuilder(
+      column: $table.showCalibrationInstructions, builder: (column) => column);
 }
 
 class $$SettingsTableTableManager extends RootTableManager<
@@ -2513,6 +2642,8 @@ class $$SettingsTableTableManager extends RootTableManager<
             Value<bool> autoStart = const Value.absent(),
             Value<int> repetitions = const Value.absent(),
             Value<String> taskSortStrategy = const Value.absent(),
+            Value<String> monitoringIntensity = const Value.absent(),
+            Value<bool> showCalibrationInstructions = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               SettingsCompanion(
@@ -2522,6 +2653,8 @@ class $$SettingsTableTableManager extends RootTableManager<
             autoStart: autoStart,
             repetitions: repetitions,
             taskSortStrategy: taskSortStrategy,
+            monitoringIntensity: monitoringIntensity,
+            showCalibrationInstructions: showCalibrationInstructions,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -2531,6 +2664,8 @@ class $$SettingsTableTableManager extends RootTableManager<
             Value<bool> autoStart = const Value.absent(),
             Value<int> repetitions = const Value.absent(),
             Value<String> taskSortStrategy = const Value.absent(),
+            Value<String> monitoringIntensity = const Value.absent(),
+            Value<bool> showCalibrationInstructions = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               SettingsCompanion.insert(
@@ -2540,6 +2675,8 @@ class $$SettingsTableTableManager extends RootTableManager<
             autoStart: autoStart,
             repetitions: repetitions,
             taskSortStrategy: taskSortStrategy,
+            monitoringIntensity: monitoringIntensity,
+            showCalibrationInstructions: showCalibrationInstructions,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

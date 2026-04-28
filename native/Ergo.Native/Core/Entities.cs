@@ -8,7 +8,7 @@ public struct CalculationResult
     public double Score;
 
     [MarshalAs(UnmanagedType.U1)] 
-    public bool IsAlert;
+    public int IsAlert;
 
     public IntPtr MessagePtr; 
 }

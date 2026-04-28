@@ -1,5 +1,5 @@
-enum AppMode { idle, calibrating, monitoring }
-enum PostureStatus { unknown, correct, incorrect, userNotFound }
+enum AppMode { idle, calibrating, monitoring, pausedMonitoring }
+enum PostureStatus { unknown, correct, incorrect, userNotFound, verifying }
 
 class PostureReferenceModel {
   final String id;

@@ -5,7 +5,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 import '../native/win_vault.dart';
-import 'package:flutter/foundation.dart';
 
 part 'app_database.g.dart';
 
@@ -54,8 +53,15 @@ class Settings extends Table {
   BoolColumn get autoStart =>
       boolean().named('auto_start').withDefault(const Constant(false))();
   IntColumn get repetitions => integer().withDefault(const Constant(1))();
-  TextColumn get taskSortStrategy =>
-      text().named('task_sort_strategy').withDefault(const Constant("Prioridad"))();
+  TextColumn get taskSortStrategy => text()
+      .named('task_sort_strategy')
+      .withDefault(const Constant("Prioridad"))();
+  TextColumn get monitoringIntensity => text()
+      .named('monitoring_intensity')
+      .withDefault(const Constant("Medio"))();
+  BoolColumn get showCalibrationInstructions => boolean()
+      .named('show_calibration_instructions')
+      .withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {userId};
@@ -80,7 +86,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -97,6 +103,11 @@ class AppDatabase extends _$AppDatabase {
           if (from < 7) {
             await m.addColumn(settings, settings.taskSortStrategy);
           }
+          if (from < 8) {
+            // Utilizar los GeneratedColumn generados en _$AppDatabase
+            await m.addColumn(settings, settings.monitoringIntensity);
+            await m.addColumn(settings, settings.showCalibrationInstructions);
+          }
         },
       );
 }
@@ -112,9 +123,6 @@ LazyDatabase _openConnection() {
     }
 
     final cipherToken = await WinVault.getOrCreateDatabaseKey();
-    if (kDebugMode) {
-      print('Password: $cipherToken');
-    }
 
     return NativeDatabase.createInBackground(file, setup: (db) {
       db.execute("PRAGMA key = '$cipherToken';");

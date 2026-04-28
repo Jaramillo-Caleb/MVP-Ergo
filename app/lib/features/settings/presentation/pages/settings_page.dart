@@ -52,84 +52,36 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _selectedOccupation;
   Uint8List? _dbPhotoBytes;
   String _selectedSort = "Prioridad";
-  bool _photoDeleted = false;
 
   List<LocationModel> _allLocations = [];
   List<String> _professions = [];
-
-  // Initial values for change detection
-  String _initialName = '';
-  String? _initialGender;
-  String? _initialLocation;
-  String? _initialOccupation;
-  String _initialBirthDate = '';
-  String _initialSort = "Prioridad";
-  String _initialWork = '';
-  String _initialBreak = '';
-  String _initialCycles = '';
+  String? _selectedMonitoringIntensity;
 
   @override
   void initState() {
     super.initState();
-    final profile = profileService.profile;
-    final settings = sessionService.settings;
-
-    if (profile != null && settings != null) {
-      _isLoading = false;
-      _setInitialData(profile, settings);
-    }
     _loadData();
   }
 
-  void _setInitialData(User profile, PomodoroSettings settings) {
-    _initialName = profile.fullName;
-    _initialGender = profile.gender;
-    _initialLocation = profile.location;
-    _initialOccupation = profile.occupation;
-    _initialBirthDate = DatePickerUtils.formatDate(profile.birthDate);
+  void _setInitialData(User profile, AppSettings settings) {
     _dbPhotoBytes = profile.photo;
+    _nameController.text = profile.fullName;
+    _selectedGender = profile.gender;
+    _selectedLocation = profile.location;
+    _selectedOccupation = profile.occupation;
+    _birthDateController.text = DatePickerUtils.formatDate(profile.birthDate);
 
-    _nameController.text = _initialName;
-    _selectedGender = _initialGender;
-    _selectedLocation = _initialLocation;
-    _selectedOccupation = _initialOccupation;
-    _birthDateController.text = _initialBirthDate;
-
-    // We assume default sort is "Prioridad" or we could fetch it from TaskService if it was persistent
-    _initialSort = "Prioridad";
-    _selectedSort = _initialSort;
-
-    _initialWork = settings.workDuration.toString();
-    _initialBreak = settings.breakDuration.toString();
-    _initialCycles = settings.repetitions.toString();
-    _initialSort = settings.taskSortStrategy;
-
-    _workDurationController.text = _initialWork;
-    _breakDurationController.text = _initialBreak;
-    _cyclesController.text = _initialCycles;
-    _selectedSort = _initialSort;
-    _photoDeleted = false;
-  }
-
-  bool _hasChanges() {
-    return _nameController.text != _initialName ||
-        _selectedGender != _initialGender ||
-        _selectedLocation != _initialLocation ||
-        _selectedOccupation != _initialOccupation ||
-        _birthDateController.text != _initialBirthDate ||
-        _selectedSort != _initialSort ||
-        _workDurationController.text != _initialWork ||
-        _breakDurationController.text != _initialBreak ||
-        _cyclesController.text != _initialCycles ||
-        _imageFile != null ||
-        _photoDeleted;
+    _workDurationController.text = settings.workDuration.toString();
+    _breakDurationController.text = settings.breakDuration.toString();
+    _cyclesController.text = settings.repetitions.toString();
+    _selectedSort = settings.taskSortStrategy;
+    _selectedMonitoringIntensity = settings.monitoringIntensity;
   }
 
   void _onDeletePhoto() {
     setState(() {
       _imageFile = null;
       _dbPhotoBytes = null;
-      _photoDeleted = true;
     });
   }
 
@@ -154,7 +106,8 @@ class _SettingsPageState extends State<SettingsPage> {
           List<String>.from(json.decode(professionsJson));
 
       final profile = await profileService.getProfile();
-      final settings = await sessionService.getSettings() ?? PomodoroSettings();
+      final settings =
+          await sessionService.getSettings() ?? const AppSettings();
 
       if (profile != null) {
         _setInitialData(profile, settings);
@@ -226,10 +179,8 @@ class _SettingsPageState extends State<SettingsPage> {
               controller: controller,
               focusNode: focusNode,
               onTap: () {
-                if (controller.text == _initialLocation) {
-                  controller.selection = TextSelection(
-                      baseOffset: 0, extentOffset: controller.text.length);
-                }
+                controller.selection = TextSelection(
+                    baseOffset: 0, extentOffset: controller.text.length);
               },
               onChanged: (v) {
                 setState(() => _selectedLocation = v);
@@ -268,13 +219,16 @@ class _SettingsPageState extends State<SettingsPage> {
         photoBytes: photoBytes,
       );
 
-      final newSettings = PomodoroSettings(
+      final newSettings = AppSettings(
         userId: 'me',
         workDuration: int.tryParse(_workDurationController.text) ?? 25,
         breakDuration: int.tryParse(_breakDurationController.text) ?? 5,
         repetitions: int.tryParse(_cyclesController.text) ?? 1,
         autoStart: sessionService.settings?.autoStart ?? false,
         taskSortStrategy: _selectedSort,
+        monitoringIntensity: _selectedMonitoringIntensity ?? 'Medio',
+        showCalibrationInstructions:
+            sessionService.settings?.showCalibrationInstructions ?? true,
       );
 
       await sessionService.updateSettings(newSettings);
@@ -374,70 +328,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<bool> _showDiscardDialog() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: 400,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 20),
-              const Text("Descartar cambios",
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textMain)),
-              const SizedBox(height: 10),
-              Text(
-                  "Tienes cambios sin guardar. ¿Seguro que quieres salir y perder las modificaciones?",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: Colors.grey[600], fontSize: 13, height: 1.5)),
-              const SizedBox(height: 28),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.border),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10))),
-                      child: const Text("Cancelar",
-                          style: TextStyle(
-                              color: AppColors.textMain,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10))),
-                      child: const Text("Descartar",
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 13)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    return result ?? false;
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
@@ -448,205 +338,220 @@ class _SettingsPageState extends State<SettingsPage> {
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
       ),
-      child: PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (bool didPop, dynamic result) async {
-          if (didPop) return;
-          final shouldPop = !_hasChanges() || await _showDiscardDialog();
-          if (shouldPop && context.mounted) {
-            if (mounted) Navigator.of(context).pop();
-          }
-        },
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 40),
-          child: Center(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Configuración",
-                      style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textMain),
-                    ),
-                    const SizedBox(height: 40),
-                    const SettingsSectionTitle(title: "Perfil de Usuario"),
-                    const SizedBox(height: 20),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SettingsAvatarPicker(
-                          imageFile: _imageFile,
-                          dbPhotoBytes: _dbPhotoBytes,
-                          onImageSelected: (file) =>
-                              setState(() => _imageFile = file),
-                          onDeletePhoto: _onDeletePhoto,
-                        ),
-                        const SizedBox(width: 50),
-                        Expanded(
-                          child: Column(
-                            children: [
-                              SettingsFormField(
-                                  label: "Nombre Completo",
-                                  hint: "Nombre",
-                                  controller: _nameController),
-                              const SizedBox(height: 25),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const ProfileLabel("Género"),
-                                        const SizedBox(height: 8),
-                                        SettingsGenderDropdown(
-                                          value: _selectedGender,
-                                          onChanged: (v) => setState(
-                                              () => _selectedGender = v),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 20),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const ProfileLabel("F. De Nacimiento"),
-                                        const SizedBox(height: 8),
-                                        AppDatePickerField(
-                                          controller: _birthDateController,
-                                          helpText: 'FECHA DE NACIMIENTO',
-                                          initialDate:
-                                              DatePickerUtils.parseDate(
-                                                      _birthDateController
-                                                          .text) ??
-                                                  DateTime(2000),
-                                          firstDate: DateTime(1940),
-                                          lastDate: DateTime.now(),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 30),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: _buildLocationAutocomplete()),
-                        const SizedBox(width: 20),
-                        Expanded(
-                            child: SettingsDropdownField(
-                                label: "Profesión",
-                                value: _selectedOccupation,
-                                items: _professions,
-                                onChanged: (v) =>
-                                    setState(() => _selectedOccupation = v))),
-                      ],
-                    ),
-                    const SizedBox(height: 50),
-                    const SettingsSectionTitle(title: "Gestión de Tareas"),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SettingsDropdownField(
-                            label: "Ordenamiento Predeterminado",
-                            value: _selectedSort,
-                            items: const ["Prioridad", "Fecha", "Nombre (A-Z)"],
-                            onChanged: (v) =>
-                                setState(() => _selectedSort = v!),
-                          ),
-                        ),
-                        const SizedBox(width: 20),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const ProfileLabel("Mantenimiento"),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: double.infinity,
-                                height: 48,
-                                child: OutlinedButton.icon(
-                                  onPressed: _showClearTasksDialog,
-                                  icon: const Icon(Icons.delete_sweep_outlined,
-                                      color: AppColors.textMain),
-                                  label: const Text("Borrar tareas completadas",
-                                      style:
-                                          TextStyle(color: AppColors.textMain)),
-                                  style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(
-                                        color: AppColors.border),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8)),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 40),
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Configuración",
+                    style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textMain),
+                  ),
+                  const SizedBox(height: 40),
+                  const SettingsSectionTitle(title: "Perfil de Usuario"),
+                  const SizedBox(height: 20),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SettingsAvatarPicker(
+                        imageFile: _imageFile,
+                        dbPhotoBytes: _dbPhotoBytes,
+                        onImageSelected: (file) =>
+                            setState(() => _imageFile = file),
+                        onDeletePhoto: _onDeletePhoto,
+                      ),
+                      const SizedBox(width: 50),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            SettingsFormField(
+                                label: "Nombre Completo",
+                                hint: "Nombre",
+                                controller: _nameController),
+                            const SizedBox(height: 25),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const ProfileLabel("Género"),
+                                      const SizedBox(height: 8),
+                                      SettingsGenderDropdown(
+                                        value: _selectedGender,
+                                        onChanged: (v) =>
+                                            setState(() => _selectedGender = v),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
+                                const SizedBox(width: 20),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const ProfileLabel("F. De Nacimiento"),
+                                      const SizedBox(height: 8),
+                                      AppDatePickerField(
+                                        controller: _birthDateController,
+                                        helpText: 'FECHA DE NACIMIENTO',
+                                        initialDate: DatePickerUtils.parseDate(
+                                                _birthDateController.text) ??
+                                            DateTime(2000),
+                                        firstDate: DateTime(1940),
+                                        lastDate: DateTime.now(),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildLocationAutocomplete()),
+                      const SizedBox(width: 20),
+                      Expanded(
+                          child: SettingsDropdownField(
+                              label: "Profesión",
+                              value: _selectedOccupation,
+                              items: _professions,
+                              onChanged: (v) =>
+                                  setState(() => _selectedOccupation = v))),
+                    ],
+                  ),
+                  const SizedBox(height: 50),
+                  const SettingsSectionTitle(title: "Gestión de Tareas"),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SettingsDropdownField(
+                          label: "Ordenamiento Predeterminado",
+                          value: _selectedSort,
+                          items: const ["Prioridad", "Fecha", "Nombre (A-Z)"],
+                          onChanged: (v) => setState(() => _selectedSort = v!),
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const ProfileLabel("Mantenimiento"),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: OutlinedButton.icon(
+                                onPressed: _showClearTasksDialog,
+                                icon: const Icon(Icons.delete_sweep_outlined,
+                                    color: AppColors.textMain),
+                                label: const Text("Borrar tareas completadas",
+                                    style:
+                                        TextStyle(color: AppColors.textMain)),
+                                style: OutlinedButton.styleFrom(
+                                  side:
+                                      const BorderSide(color: AppColors.border),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 50),
+                  const SettingsSectionTitle(title: "Preferencias de Pomodoro"),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: 650,
+                    child: Row(
+                      children: [
+                        Expanded(
+                            child: SettingsFormField(
+                                label: "Trabajo (min)",
+                                hint: "25",
+                                controller: _workDurationController,
+                                keyboardType: TextInputType.number)),
+                        const SizedBox(width: 20),
+                        Expanded(
+                            child: SettingsFormField(
+                                label: "Descanso (min)",
+                                hint: "5",
+                                controller: _breakDurationController,
+                                keyboardType: TextInputType.number)),
+                        const SizedBox(width: 20),
+                        Expanded(
+                            child: SettingsFormField(
+                                label: "Ciclos",
+                                hint: "4",
+                                controller: _cyclesController,
+                                keyboardType: TextInputType.number)),
                       ],
                     ),
-                    const SizedBox(height: 50),
-                    const SettingsSectionTitle(
-                        title: "Preferencias de Pomodoro"),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: 650,
-                      child: Row(
-                        children: [
-                          Expanded(
-                              child: SettingsFormField(
-                                  label: "Trabajo (min)",
-                                  hint: "25",
-                                  controller: _workDurationController,
-                                  keyboardType: TextInputType.number)),
-                          const SizedBox(width: 20),
-                          Expanded(
-                              child: SettingsFormField(
-                                  label: "Descanso (min)",
-                                  hint: "5",
-                                  controller: _breakDurationController,
-                                  keyboardType: TextInputType.number)),
-                          const SizedBox(width: 20),
-                          Expanded(
-                              child: SettingsFormField(
-                                  label: "Ciclos",
-                                  hint: "4",
-                                  controller: _cyclesController,
-                                  keyboardType: TextInputType.number)),
-                        ],
+                  ),
+                  const SizedBox(height: 50),
+                  const SettingsSectionTitle(title: "Monitoreo de Postura"),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SettingsDropdownField(
+                          label: "Intensidad",
+                          value: _selectedMonitoringIntensity,
+                          items: const ["Bajo", "Medio", "Alto"],
+                          onChanged: (v) =>
+                              setState(() => _selectedMonitoringIntensity = v),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 60),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: SizedBox(
-                        width: 220,
-                        height: 45,
-                        child: ProfileButton(
-                            text: "Guardar Cambios",
-                            isLoading: _isSaving,
-                            onPressed: _saveAll),
+                      const SizedBox(width: 20),
+                      const Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 20),
+                          child: Text(
+                            "Alto es más estricto con la postura.\nBajo es más permisivo y flexible.",
+                            style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic),
+                          ),
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 60),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: SizedBox(
+                      width: 220,
+                      height: 45,
+                      child: ProfileButton(
+                          text: "Guardar Cambios",
+                          isLoading: _isSaving,
+                          onPressed: _saveAll),
                     ),
-                    const SizedBox(height: 80),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 80),
+                ],
               ),
             ),
           ),

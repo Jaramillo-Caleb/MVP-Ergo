@@ -4,19 +4,25 @@ import 'package:ergo_desktop/core/theme/app_colors.dart';
 class ActionButtonsCard extends StatelessWidget {
   final VoidCallback onPomodoro;
   final VoidCallback onMonitoring;
+  final VoidCallback? onPauseResume;
   final String pomodoroLabel;
   final Color pomodoroColor;
   final String monitoringLabel;
   final Color monitoringColor;
+  final bool isMonitoringOrPaused;
+  final bool isPaused;
 
   const ActionButtonsCard({
     super.key,
     required this.onPomodoro,
     required this.onMonitoring,
+    this.onPauseResume,
     this.pomodoroLabel = "Inicio Pomodoro",
     this.pomodoroColor = AppColors.sidebarBackground,
     this.monitoringLabel = "Inicio monitoreo",
     this.monitoringColor = Colors.white,
+    this.isMonitoringOrPaused = false,
+    this.isPaused = false,
   });
 
   @override
@@ -36,16 +42,8 @@ class ActionButtonsCard extends StatelessWidget {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start, // Alineado a la izquierda
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "GESTIÓN",
-            style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-                letterSpacing: 1.2),
-          ),
           const Spacer(),
           _ActionButton(
               label: pomodoroLabel,
@@ -54,6 +52,17 @@ class ActionButtonsCard extends StatelessWidget {
               textColor: Colors.white,
               onTap: onPomodoro),
           const SizedBox(height: 12),
+          if (isMonitoringOrPaused) ...[
+            _ActionButton(
+                label: isPaused ? "Reanudar" : "Pausar",
+                icon:
+                    isPaused ? Icons.play_arrow_outlined : Icons.pause_outlined,
+                color: Colors.white,
+                textColor: AppColors.textMain,
+                isOutlined: true,
+                onTap: onPauseResume ?? () {}),
+            const SizedBox(height: 12),
+          ],
           _ActionButton(
               label: monitoringLabel,
               icon: Icons.videocam_outlined,

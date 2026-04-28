@@ -40,7 +40,7 @@ target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 add_dependencies(${BINARY_NAME} flutter_assemble)
 
 # Se define la ruta de la DLL 
-set(ERGO_NATIVE_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../native/Ergo.Native/bin/Release/net9.0/win-x64/native/Ergo.Native.dll")
+set(ERGO_NATIVE_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../native/Ergo.Native/bin/Release/net9.0/win-x64/publish/Ergo.Native.dll")
 
 # 2. Comando para copiar la DLL automáticamente después de compilar
 add_custom_command(
@@ -52,13 +52,13 @@ add_custom_command(
 )
 
 # Copiar el modelo ONNX 
-set(ERGO_MODEL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../assets/models/pose_landmark_lite.onnx")
+set(ERGO_MODEL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../assets/models/model.onnx")
 
 add_custom_command(
     TARGET ${BINARY_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${ERGO_MODEL_PATH}"
-    "$<TARGET_FILE_DIR:${BINARY_NAME}>/pose_landmark_lite.onnx"
+    "$<TARGET_FILE_DIR:${BINARY_NAME}>/model.onnx"
     COMMENT "Copiando modelo ONNX al directorio de ejecucion..."
 )
 
@@ -69,6 +69,23 @@ set(SQLCIPHER_DLLS
 )
 
 foreach(dll ${SQLCIPHER_DLLS})
+    add_custom_command(
+        TARGET ${BINARY_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${dll}"
+        "$<TARGET_FILE_DIR:${BINARY_NAME}>"
+    )
+endforeach()
+
+# Copiar DLLs de dependencias nativas de Ergo.Native
+set(ERGO_NATIVE_DEPS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../native/Ergo.Native/bin/Release/net9.0/win-x64/publish")
+
+set(ERGO_NATIVE_DEPS
+    "${ERGO_NATIVE_DEPS_DIR}/OpenCvSharpExtern.dll"
+    "${ERGO_NATIVE_DEPS_DIR}/onnxruntime.dll"
+)
+
+foreach(dll ${ERGO_NATIVE_DEPS})
     add_custom_command(
         TARGET ${BINARY_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different

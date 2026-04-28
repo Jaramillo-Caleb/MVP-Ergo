@@ -10,7 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.ML.OnnxRuntime"
-                      Version="1.17.1"
+                      Version="1.21.0"
                       GeneratePathProperty="true" />
 
     <PackageReference Include="OpenCvSharp4"

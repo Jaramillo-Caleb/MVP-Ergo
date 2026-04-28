@@ -13,21 +13,25 @@ enum PomodoroState {
   workFinished,
 }
 
-class PomodoroSettings {
+class AppSettings {
   final String userId;
   final int workDuration;
   final int breakDuration;
   final bool autoStart;
   final int repetitions;
   final String taskSortStrategy;
+  final String monitoringIntensity;
+  final bool showCalibrationInstructions;
 
-  const PomodoroSettings({
+  const AppSettings({
     this.userId = 'me',
     this.workDuration = 25,
     this.breakDuration = 5,
     this.autoStart = false,
     this.repetitions = 1,
     this.taskSortStrategy = 'Prioridad',
+    this.monitoringIntensity = 'Medio',
+    this.showCalibrationInstructions = true,
   });
 
   Map<String, dynamic> toMap() {
@@ -38,35 +42,43 @@ class PomodoroSettings {
       'auto_start': autoStart ? 1 : 0,
       'repetitions': repetitions,
       'task_sort_strategy': taskSortStrategy,
+      'monitoring_intensity': monitoringIntensity,
+      'show_calibration_instructions': showCalibrationInstructions ? 1 : 0,
     };
   }
 
-  factory PomodoroSettings.fromMap(Map<String, dynamic> map) {
-    return PomodoroSettings(
+  factory AppSettings.fromMap(Map<String, dynamic> map) {
+    return AppSettings(
       userId: map['user_id'] ?? 'me',
       workDuration: map['work_duration'] ?? 25,
       breakDuration: map['break_duration'] ?? 5,
       autoStart: (map['auto_start'] ?? 0) == 1,
       repetitions: map['repetitions'] ?? 1,
       taskSortStrategy: map['task_sort_strategy'] ?? 'Prioridad',
+      monitoringIntensity: map['monitoring_intensity'] ?? 'Medio',
+      showCalibrationInstructions: (map['show_calibration_instructions'] ?? 1) == 1,
     );
   }
 
-  PomodoroSettings copyWith({
+  AppSettings copyWith({
     String? userId,
     int? workDuration,
     int? breakDuration,
     bool? autoStart,
     int? repetitions,
     String? taskSortStrategy,
+    String? monitoringIntensity,
+    bool? showCalibrationInstructions,
   }) {
-    return PomodoroSettings(
+    return AppSettings(
       userId: userId ?? this.userId,
       workDuration: workDuration ?? this.workDuration,
       breakDuration: breakDuration ?? this.breakDuration,
       autoStart: autoStart ?? this.autoStart,
       repetitions: repetitions ?? this.repetitions,
       taskSortStrategy: taskSortStrategy ?? this.taskSortStrategy,
+      monitoringIntensity: monitoringIntensity ?? this.monitoringIntensity,
+      showCalibrationInstructions: showCalibrationInstructions ?? this.showCalibrationInstructions,
     );
   }
 }

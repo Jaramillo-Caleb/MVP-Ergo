@@ -1,9 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:local_notifier/local_notifier.dart';
-import 'dart:typed_data';
 
 import 'package:ergo_desktop/core/theme/app_colors.dart';
 import 'package:ergo_desktop/features/dashboard/data/models/posture_models.dart';
@@ -23,10 +24,8 @@ import 'package:ergo_desktop/features/tasks/data/services/task_service.dart';
 final sl = GetIt.instance;
 
 class DashboardPage extends StatefulWidget {
-  final String userName;
   final Function(int)? onNavigateToIndex;
-  const DashboardPage(
-      {super.key, required this.userName, this.onNavigateToIndex});
+  const DashboardPage({super.key, this.onNavigateToIndex});
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -57,32 +56,30 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _loadInitialData() async {
     try {
       await sl<TaskService>().loadTasks();
-    } catch (e) {
-      debugPrint("Error cargando datos iniciales: $e");
-    }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
-    _cleanupResources();
+    _currentMode = AppMode.idle;
+    _safeDisposeCamera();
     super.dispose();
   }
 
-  /// Limpia recursos de forma segura para evitar fugas de memoria o errores de hilos.
-  Future<void> _cleanupResources() async {
-    _currentMode = AppMode.idle; // Detiene los bucles async
+  /// Libera la cámara de forma inmediata y segura.
+  Future<void> _safeDisposeCamera() async {
+    if (_cameraController == null) return;
 
     final controller = _cameraController;
     _cameraController = null;
 
-    if (controller != null) {
-      // Esperar a que cualquier proceso de frame termine antes de dispose
-      int retries = 0;
-      while (_isProcessingFrame && retries < 5) {
-        await Future.delayed(const Duration(milliseconds: 200));
-        retries++;
+    try {
+      if (controller != null && controller.value.isInitialized) {
+        await controller.dispose();
       }
-      await controller.dispose();
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() {});
     }
   }
 
@@ -99,9 +96,13 @@ class _DashboardPageState extends State<DashboardPage> {
 
     try {
       final cameras = await availableCameras();
-      if (cameras.isEmpty) {
-        debugPrint("Cámara no detectada.");
-        return false;
+      if (cameras.isEmpty) return false;
+
+      if (_cameraController != null) {
+        try {
+          await _cameraController!.dispose();
+        } catch (_) {}
+        _cameraController = null;
       }
 
       final controller = CameraController(
@@ -118,30 +119,13 @@ class _DashboardPageState extends State<DashboardPage> {
       }
 
       _cameraController = controller;
-      setState(() {});
+      if (mounted) setState(() {});
       return true;
     } catch (e) {
-      debugPrint("Fallo al inicializar cámara: $e");
+      _cameraController = null;
       return false;
     } finally {
       if (mounted) setState(() => _isOpeningCamera = false);
-    }
-  }
-
-  Future<void> _closeCameraIfUnused() async {
-    if (!mounted) return;
-
-    // Solo cerrar si el sistema está IDLE y no hay operaciones de hardware pendientes
-    if (_currentMode == AppMode.idle &&
-        !_isProcessingFrame &&
-        !_isOpeningCamera) {
-      final controller = _cameraController;
-      _cameraController = null;
-      if (controller != null) {
-        await controller.dispose();
-        if (mounted) setState(() {});
-        debugPrint("Hardware de cámara liberado.");
-      }
     }
   }
 
@@ -150,7 +134,8 @@ class _DashboardPageState extends State<DashboardPage> {
   void _handleStartMonitoring() async {
     if (_isDialogOpen) return;
 
-    if (_currentMode == AppMode.monitoring) {
+    if (_currentMode == AppMode.monitoring ||
+        _currentMode == AppMode.pausedMonitoring) {
       _stopMonitoring();
       return;
     }
@@ -179,6 +164,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _startMonitoringProcess(PostureReferenceModel posture) async {
     if (!mounted) return;
 
+    // Solo abrir cámara si no está abierta
     final ok = await _openCameraIfNeeded();
     if (!ok) {
       if (mounted) {
@@ -199,7 +185,6 @@ class _DashboardPageState extends State<DashboardPage> {
     });
 
     _monitoringLoop();
-    debugPrint("Bucle de monitoreo activado.");
   }
 
   void _stopMonitoring() {
@@ -210,24 +195,46 @@ class _DashboardPageState extends State<DashboardPage> {
         _currentPostureStatus = PostureStatus.unknown;
       });
     }
-    _closeCameraIfUnused();
+    _safeDisposeCamera();
   }
 
-  /// Bucle asíncrono seguro que reemplaza Timer.periodic para evitar condiciones de carrera.
+  void _pauseMonitoring() {
+    if (_currentMode != AppMode.monitoring) return;
+    setState(() {
+      _currentMode = AppMode.pausedMonitoring;
+    });
+    _safeDisposeCamera();
+  }
+
+  void _resumeMonitoring() async {
+    if (_currentMode != AppMode.pausedMonitoring) return;
+
+    final ok = await _openCameraIfNeeded();
+    if (!ok) return;
+
+    setState(() {
+      _currentMode = AppMode.monitoring;
+      // Reset a un estado seguro
+      _currentPostureStatus = PostureStatus.correct;
+      _isBurstMode = false;
+      _consecutiveIncorrectCount = 0;
+    });
+
+    _monitoringLoop();
+  }
+
+  /// Bucle asíncrono seguro.
   Future<void> _monitoringLoop() async {
     while (_currentMode == AppMode.monitoring && mounted) {
       await _performPostureAnalysis();
 
       if (_currentMode != AppMode.monitoring || !mounted) break;
 
-      // Determinar tiempo de espera basado en el estado
       int delaySeconds;
       if (_currentPostureStatus == PostureStatus.incorrect) {
-        delaySeconds = 2; // Ráfaga para corregir
-      } else if (_currentPostureStatus == PostureStatus.userNotFound) {
-        delaySeconds = 30; // Ahorro de recursos si no hay nadie
+        delaySeconds = 2; // Ráfaga
       } else {
-        delaySeconds = 10; // Normal (Correct o Unknown)
+        delaySeconds = 10; // Normal
       }
 
       await Future.delayed(Duration(seconds: delaySeconds));
@@ -235,26 +242,33 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _performPostureAnalysis() async {
-    if (_currentMode != AppMode.monitoring ||
-        _cameraController == null ||
-        !mounted) {
-      return;
-    }
-    if (!_cameraController!.value.isInitialized || _isProcessingFrame) return;
+    if (_currentMode != AppMode.monitoring || !mounted) return;
+
+    final ok = await _openCameraIfNeeded();
+    if (!ok || _isProcessingFrame) return;
 
     _isProcessingFrame = true;
+    final shouldKeepCameraOpen = _isBurstMode;
 
     try {
-      final XFile image = await _cameraController!.takePicture();
-      if (!mounted || _currentMode != AppMode.monitoring) return;
-
-      // Optimización de Hardware: Liberar cámara inmediatamente si no estamos en ráfaga
-      // Esto permite que el sistema libere recursos mientras la IA procesa los bytes.
-      if (!_isBurstMode) {
-        _closeCameraIfUnused();
+      XFile? image;
+      if (_cameraController != null && _cameraController!.value.isInitialized) {
+        image = await _cameraController!.takePicture().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            throw TimeoutException('takePicture timeout — cámara bloqueada');
+          },
+        );
       }
 
-      final bytes = await image.readAsBytes();
+      if (!shouldKeepCameraOpen) await _safeDisposeCamera();
+
+      if (image == null || !mounted || _currentMode != AppMode.monitoring) {
+        return;
+      }
+
+      final bytes = await _processAndCleanupImage(image);
+      if (bytes == null) return;
 
       final isCorrect = await sl<PostureService>().monitorPosture(
         _activePosture!.vectorList,
@@ -264,42 +278,68 @@ class _DashboardPageState extends State<DashboardPage> {
       if (!mounted || _currentMode != AppMode.monitoring) return;
 
       if (isCorrect == null) {
-        setState(() {
-          _currentPostureStatus = PostureStatus.userNotFound;
-          // No reset de contadores, solo pausa la ráfaga si estaba activa
-          // o simplemente mantenemos el estado previo de los contadores
-          // para cuando el usuario vuelva.
-        });
+        setState(() => _currentPostureStatus = PostureStatus.unknown);
         return;
       }
 
-      setState(() {
-        _currentPostureStatus =
-            isCorrect ? PostureStatus.correct : PostureStatus.incorrect;
-      });
+      _updatePostureState(isCorrect);
 
-      if (!isCorrect) {
-        _consecutiveIncorrectCount++;
-        if (!_isBurstMode) {
-          setState(() => _isBurstMode = true);
-        }
-
-        if (_consecutiveIncorrectCount == 2 ||
-            (_consecutiveIncorrectCount > 2 &&
-                _consecutiveIncorrectCount % 5 == 0)) {
-          _sendPostureAlert();
-        }
-      } else {
-        _consecutiveIncorrectCount = 0;
-        if (_isBurstMode) {
-          setState(() => _isBurstMode = false);
-        }
-      }
+      if (!_isBurstMode) await _safeDisposeCamera();
     } catch (e) {
-      debugPrint("Error en ciclo de análisis: $e");
+      if (!_isBurstMode) await _safeDisposeCamera();
     } finally {
       _isProcessingFrame = false;
-      if (_currentMode == AppMode.idle) _closeCameraIfUnused();
+      if (_currentMode == AppMode.idle) await _safeDisposeCamera();
+    }
+  }
+
+  /// Lee bytes y garantiza la eliminación del archivo físico bajo cualquier circunstancia.
+  Future<Uint8List?> _processAndCleanupImage(XFile image) async {
+    final file = File(image.path);
+    Uint8List? bytes;
+    try {
+      bytes = await image.readAsBytes();
+    } catch (_) {
+    } finally {
+      // Pequeña espera para asegurar que la cámara liberó el archivo en Windows
+      await Future.delayed(const Duration(milliseconds: 100));
+      try {
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (e) {
+        // Reintentar una vez tras error de bloqueo
+        Future.delayed(const Duration(seconds: 1), () async {
+          try {
+            if (await file.exists()) await file.delete();
+          } catch (_) {}
+        });
+      }
+    }
+    return bytes;
+  }
+
+  void _updatePostureState(bool isCorrect) {
+    if (!mounted) return;
+    setState(() {
+      _currentPostureStatus =
+          isCorrect ? PostureStatus.correct : PostureStatus.incorrect;
+    });
+
+    if (!isCorrect) {
+      _consecutiveIncorrectCount++;
+      if (_consecutiveIncorrectCount > 1000) _consecutiveIncorrectCount = 6;
+
+      if (!_isBurstMode) setState(() => _isBurstMode = true);
+
+      if (_consecutiveIncorrectCount == 2 ||
+          (_consecutiveIncorrectCount > 2 &&
+              _consecutiveIncorrectCount % 5 == 0)) {
+        _sendPostureAlert();
+      }
+    } else {
+      _consecutiveIncorrectCount = 0;
+      if (_isBurstMode) setState(() => _isBurstMode = false);
     }
   }
 
@@ -358,10 +398,10 @@ class _DashboardPageState extends State<DashboardPage> {
         if (_cameraController != null &&
             _cameraController!.value.isInitialized) {
           final XFile image = await _cameraController!.takePicture();
-          _capturedFrames.add(await image.readAsBytes());
+          final bytes = await _processAndCleanupImage(image);
+          if (bytes != null) _capturedFrames.add(bytes);
         }
-      } catch (e) {
-        debugPrint("Error captura calibración: $e");
+      } catch (_) {
       } finally {
         _isProcessingFrame = false;
       }
@@ -409,7 +449,7 @@ class _DashboardPageState extends State<DashboardPage> {
           _showSavePostureDialog(vector);
         }
       } else {
-        _closeCameraIfUnused();
+        _safeDisposeCamera();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -420,7 +460,7 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     } catch (e) {
       if (mounted) Navigator.of(context).pop();
-      _closeCameraIfUnused();
+      _safeDisposeCamera();
     }
   }
 
@@ -444,10 +484,9 @@ class _DashboardPageState extends State<DashboardPage> {
           _startMonitoringProcess(updated);
         }
       }
-    } catch (e) {
-      debugPrint("Error al actualizar vector: $e");
+    } catch (_) {
     } finally {
-      _closeCameraIfUnused();
+      _safeDisposeCamera();
     }
   }
 
@@ -485,10 +524,10 @@ class _DashboardPageState extends State<DashboardPage> {
       if (newPosture != null && mounted) {
         _startMonitoringProcess(newPosture);
       } else {
-        _closeCameraIfUnused();
+        _safeDisposeCamera();
       }
     } catch (e) {
-      _closeCameraIfUnused();
+      _safeDisposeCamera();
     }
   }
 
@@ -498,17 +537,13 @@ class _DashboardPageState extends State<DashboardPage> {
         title: "ERGO: Alerta de Postura",
         body: "Se ha detectado una desviación. Por favor, endereza la espalda.",
       ).show();
-    } catch (e) {
-      debugPrint("Error notificación: $e");
-    }
+    } catch (_) {}
   }
 
   Future<void> _handleStartPomodoro() async {
     try {
       await sl<WorkSessionService>().startWork();
-    } catch (e) {
-      debugPrint("Error Pomodoro: $e");
-    }
+    } catch (_) {}
   }
 
   @override
@@ -536,15 +571,23 @@ class _DashboardPageState extends State<DashboardPage> {
                     final isIdle = pomodoroState == PomodoroState.idle;
 
                     final isMonitoring = _currentMode == AppMode.monitoring;
+                    final isPaused = _currentMode == AppMode.pausedMonitoring;
+                    final isMonitoringOrPaused = isMonitoring || isPaused;
 
                     return ActionButtonsCard(
                       pomodoroLabel:
                           isIdle ? "Inicio Pomodoro" : "Ir a Pomodoro",
                       pomodoroColor: AppColors.sidebarBackground,
-                      monitoringLabel:
-                          isMonitoring ? "Parar monitoreo" : "Inicio monitoreo",
-                      monitoringColor:
-                          isMonitoring ? Colors.red[400]! : Colors.white,
+                      monitoringLabel: isMonitoringOrPaused
+                          ? "Parar monitoreo"
+                          : "Inicio monitoreo",
+                      monitoringColor: isMonitoringOrPaused
+                          ? Colors.red[400]!
+                          : Colors.white,
+                      isMonitoringOrPaused: isMonitoringOrPaused,
+                      isPaused: isPaused,
+                      onPauseResume:
+                          isPaused ? _resumeMonitoring : _pauseMonitoring,
                       onPomodoro: () {
                         if (isIdle) {
                           _handleStartPomodoro();

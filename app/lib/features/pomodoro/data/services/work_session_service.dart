@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart' hide Column;
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import '../models/work_session_model.dart';
 import '../../../dashboard/data/services/notification_service.dart';
 import '../../../../core/database/app_database.dart';
@@ -11,7 +14,7 @@ class WorkSessionService extends ChangeNotifier {
   final NotificationService _notificationService;
   final _uuid = const Uuid();
 
-  PomodoroSettings? _settingsCache;
+  AppSettings? _settingsCache;
 
   int totalWorkSeconds = 0;
   int totalBreakSeconds = 0;
@@ -26,7 +29,7 @@ class WorkSessionService extends ChangeNotifier {
   int get secondsRemaining => _secondsRemaining;
   int get currentRepetition => _currentRepetition;
   String? get currentSessionId => _currentSessionId;
-  PomodoroSettings? get settings => _settingsCache;
+  AppSettings? get settings => _settingsCache;
 
   WorkSessionService({
     required AppDatabase db,
@@ -37,10 +40,49 @@ class WorkSessionService extends ChangeNotifier {
   Future<void> prefetchSettings() async {
     if (_settingsCache != null) return;
     _settingsCache = await getSettings();
+
+    // Migración de archivos TXT a SQLite
+    await _migrateLegacyFiles();
+
     if (_settingsCache != null && _state == PomodoroState.idle) {
       _secondsRemaining = _settingsCache!.workDuration * 60;
     }
     notifyListeners();
+  }
+
+  Future<void> _migrateLegacyFiles() async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final intensityFile = File(p.join(dir.path, 'posture_intensity.txt'));
+      final instrFile = File(p.join(dir.path, 'calibration_show_instr.txt'));
+
+      String? legacyIntensity;
+      bool? legacyShowInstr;
+
+      if (await intensityFile.exists()) {
+        legacyIntensity = (await intensityFile.readAsString()).trim();
+      }
+      if (await instrFile.exists()) {
+        legacyShowInstr = (await instrFile.readAsString()).trim() != 'false';
+      }
+
+      if (legacyIntensity != null || legacyShowInstr != null) {
+        final current = _settingsCache ?? const AppSettings();
+        final updated = current.copyWith(
+          monitoringIntensity: legacyIntensity,
+          showCalibrationInstructions: legacyShowInstr,
+        );
+        await updateSettings(updated);
+
+        // Opcional: Eliminar archivos antiguos
+        if (await intensityFile.exists()) await intensityFile.delete();
+        if (await instrFile.exists()) await instrFile.delete();
+        
+        debugPrint("Migración de configuraciones TXT a SQLite completada.");
+      }
+    } catch (e) {
+      debugPrint("Error en migración de archivos legacy: $e");
+    }
   }
 
   void _startTimer() {
@@ -123,7 +165,9 @@ class WorkSessionService extends ChangeNotifier {
 
   void startBreak() {
     if (_settingsCache == null) return;
-    _state = _state == PomodoroState.workPaused || _state == PomodoroState.working || _state == PomodoroState.workFinished
+    _state = _state == PomodoroState.workPaused ||
+            _state == PomodoroState.working ||
+            _state == PomodoroState.workFinished
         ? PomodoroState.breaking
         : _state;
     _secondsRemaining = _settingsCache!.breakDuration * 60;
@@ -161,13 +205,15 @@ class WorkSessionService extends ChangeNotifier {
   }
 
   void resetDefaults() {
-    _settingsCache = const PomodoroSettings(
+    _settingsCache = const AppSettings(
       userId: 'me',
       workDuration: 25,
       breakDuration: 5,
       autoStart: false,
       repetitions: 1,
       taskSortStrategy: 'Prioridad',
+      monitoringIntensity: 'Medio',
+      showCalibrationInstructions: true,
     );
     if (_state == PomodoroState.idle) {
       _secondsRemaining = 25 * 60;
@@ -178,46 +224,54 @@ class WorkSessionService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<PomodoroSettings?> getSettings() async {
+  Future<AppSettings?> getSettings() async {
     if (_settingsCache != null) return _settingsCache;
 
     try {
-      final row = await (_db.select(_db.settings)..where((t) => t.userId.equals('me'))).getSingleOrNull();
+      final row = await (_db.select(_db.settings)
+            ..where((t) => t.userId.equals('me')))
+          .getSingleOrNull();
 
       if (row != null) {
-        _settingsCache = PomodoroSettings(
+        _settingsCache = AppSettings(
           userId: row.userId,
           workDuration: row.workDuration,
           breakDuration: row.breakDuration,
           autoStart: row.autoStart,
           repetitions: row.repetitions,
           taskSortStrategy: row.taskSortStrategy,
+          monitoringIntensity: row.monitoringIntensity,
+          showCalibrationInstructions: row.showCalibrationInstructions,
         );
       } else {
-        _settingsCache = const PomodoroSettings(
+        _settingsCache = const AppSettings(
           userId: 'me',
           workDuration: 25,
           breakDuration: 5,
           autoStart: false,
           repetitions: 1,
           taskSortStrategy: 'Prioridad',
+          monitoringIntensity: 'Medio',
+          showCalibrationInstructions: true,
         );
       }
     } catch (e) {
       debugPrint("Error loading settings: $e");
-      _settingsCache = const PomodoroSettings(
+      _settingsCache = const AppSettings(
         userId: 'me',
         workDuration: 25,
         breakDuration: 5,
         autoStart: false,
         repetitions: 1,
         taskSortStrategy: 'Prioridad',
+        monitoringIntensity: 'Medio',
+        showCalibrationInstructions: true,
       );
     }
     return _settingsCache;
   }
 
-  Future<void> updateSettings(PomodoroSettings settings) async {
+  Future<void> updateSettings(AppSettings settings) async {
     _settingsCache = settings;
     try {
       final entry = SettingsCompanion(
@@ -227,6 +281,8 @@ class WorkSessionService extends ChangeNotifier {
         autoStart: Value(settings.autoStart),
         repetitions: Value(settings.repetitions),
         taskSortStrategy: Value(settings.taskSortStrategy),
+        monitoringIntensity: Value(settings.monitoringIntensity),
+        showCalibrationInstructions: Value(settings.showCalibrationInstructions),
       );
       await _db.into(_db.settings).insertOnConflictUpdate(entry);
     } catch (e) {

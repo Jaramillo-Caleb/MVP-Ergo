@@ -18,7 +18,7 @@ Future<void> init() async {
   final nativeBridge = NativeBridge();
 
   try {
-    nativeBridge.initialize("pose_landmark_lite.onnx");
+    nativeBridge.initialize("model.onnx");
     developer.log("DI: NativeBridge inicializado y vinculado.");
   } catch (e) {
     developer.log("DI ERROR: No se pudo inicializar el motor nativo: $e");

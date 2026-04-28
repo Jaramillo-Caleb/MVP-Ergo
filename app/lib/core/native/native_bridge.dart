@@ -8,8 +8,8 @@ final class CalculationResult extends ffi.Struct {
   @ffi.Double()
   external double score;
 
-  @ffi.Bool()
-  external bool isAlert;
+  @ffi.Int32()
+  external int isAlert;
 
   external ffi.Pointer<Utf8> messagePtr;
 }
@@ -18,11 +18,13 @@ typedef ProcessFrameNative = CalculationResult Function(
   ffi.Pointer<ffi.Uint8> imagePtr,
   ffi.Int32 size,
   ffi.Pointer<ffi.Double> referencePtr,
+  ffi.Double threshold,
 );
 typedef ProcessFrameDart = CalculationResult Function(
   ffi.Pointer<ffi.Uint8> imagePtr,
   int size,
   ffi.Pointer<ffi.Double> referencePtr,
+  double threshold,
 );
 
 typedef ExtractVectorsNative = ffi.Int32 Function(
@@ -41,15 +43,11 @@ typedef ExtractVectorsDart = int Function(
 typedef InitEngineNative = ffi.Void Function(ffi.Pointer<Utf8> modelPath);
 typedef InitEngineDart = void Function(ffi.Pointer<Utf8> modelPath);
 
-typedef NativeLogFn = ffi.Void Function(ffi.Pointer<Utf8> message);
-
 class NativeBridge {
   late ffi.DynamicLibrary _lib;
   late ProcessFrameDart _processFrame;
   late ExtractVectorsDart _extractVectors;
   late InitEngineDart _initEngine;
-
-  late ffi.NativeCallable<NativeLogFn> _loggerExecutable;
 
   NativeBridge() {
     _loadLibrary();
@@ -78,20 +76,6 @@ class NativeBridge {
             'extract_vectors');
     _initEngine = _lib
         .lookupFunction<InitEngineNative, InitEngineDart>('init_native_engine');
-
-    final registerLogger = _lib.lookupFunction<
-        ffi.Void Function(ffi.Pointer<ffi.NativeFunction<NativeLogFn>>),
-        void Function(
-            ffi.Pointer<ffi.NativeFunction<NativeLogFn>>)>('register_logger');
-
-    _loggerExecutable =
-        ffi.NativeCallable<NativeLogFn>.isolateLocal(_dartLogger);
-    registerLogger(_loggerExecutable.nativeFunction);
-  }
-
-  static void _dartLogger(ffi.Pointer<Utf8> message) {
-    final msg = message.toDartString();
-    print('--- [C# NATIVE LOG]: $msg');
   }
 
   void initialize(String modelPath) {
@@ -101,7 +85,7 @@ class NativeBridge {
   }
 
   (double, bool) processFrame(
-      List<double> referenceVector, List<int> imageBytes) {
+      List<double> referenceVector, List<int> imageBytes, double threshold) {
     final refPtr = malloc<ffi.Double>(referenceVector.length);
     for (var i = 0; i < referenceVector.length; i++) {
       refPtr[i] = referenceVector[i];
@@ -111,10 +95,10 @@ class NativeBridge {
     final typedList = imgPtr.asTypedList(imageBytes.length);
     typedList.setAll(0, imageBytes);
 
-    final result = _processFrame(imgPtr, imageBytes.length, refPtr);
+    final result = _processFrame(imgPtr, imageBytes.length, refPtr, threshold);
 
     final score = result.score;
-    final alert = result.isAlert;
+    final bool alert = result.isAlert != 0;
 
     malloc.free(refPtr);
     malloc.free(imgPtr);
@@ -123,12 +107,7 @@ class NativeBridge {
   }
 
   List<List<double>> extractMultipleVectors(List<Uint8List> images) {
-    print(
-        '--- [DART]: Preparando calibración con ${images.length} imágenes...');
-    if (images.isEmpty) {
-      print('--- [DART]: Error: La lista de imágenes está VACÍA.');
-      return [];
-    }
+    if (images.isEmpty) return [];
 
     final int count = images.length;
     final imagesPtr = malloc<ffi.Pointer<ffi.Uint8>>(count);
@@ -145,9 +124,8 @@ class NativeBridge {
       sizesPtr[i] = img.length;
       allocatedImages.add(p);
     }
-    print('--- [DART]: Llamando a la función nativa extract_vectors...');
+
     final int successful = _extractVectors(imagesPtr, sizesPtr, count, outPtr);
-    print('--- [DART]: La IA devolvió $successful vectores exitosos.');
 
     List<List<double>> results = [];
     for (int i = 0; i < successful; i++) {

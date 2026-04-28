@@ -59,7 +59,7 @@ flutter:
    - assets/icons/
    - assets/data/professions.json
    - assets/data/colombia_municipios.json
-   - ../assets/models/pose_landmark_lite.onnx
+   - ../assets/models/model.onnx
 
 hooks:
   user_defines:

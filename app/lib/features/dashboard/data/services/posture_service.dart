@@ -1,12 +1,11 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 import '../models/posture_models.dart';
 import 'package:logger/logger.dart';
 import 'package:drift/drift.dart';
+import 'package:get_it/get_it.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/native/native_bridge.dart';
+import '../../../pomodoro/data/services/work_session_service.dart';
+import '../../../pomodoro/data/models/work_session_model.dart';
 import 'package:uuid/uuid.dart';
 
 class PostureService {
@@ -18,6 +17,9 @@ class PostureService {
   PostureService({required AppDatabase db, required NativeBridge bridge})
       : _db = db,
         _bridge = bridge;
+
+  WorkSessionService get _sessionService =>
+      GetIt.instance<WorkSessionService>();
 
   Future<List<PostureReferenceModel>> getPostures() async {
     try {
@@ -111,58 +113,98 @@ class PostureService {
   }
 
   Future<List<double>?> computeCalibration(List<Uint8List> imagesBytes) async {
-    if (imagesBytes.isEmpty) return null;
+    final vectors = _bridge.extractMultipleVectors(imagesBytes);
+    if (vectors.isEmpty) return null;
 
-    try {
-      final vectors = _bridge.extractMultipleVectors(imagesBytes);
-      if (vectors.isEmpty) return null;
+    // Descartar outliers: quedarse con los vectores más cercanos al centroide
+    final int vectorSize = vectors.first.length;
+    final List<double> centroid = List<double>.filled(vectorSize, 0.0);
 
-      // Calcular el promedio de los vectores extraídos
-      final List<double> averageVector = List<double>.filled(15, 0.0);
-      for (final v in vectors) {
-        for (int i = 0; i < 15; i++) {
-          averageVector[i] += v[i];
-        }
+    for (final v in vectors) {
+      for (int i = 0; i < vectorSize; i++) {
+        centroid[i] += v[i];
       }
-
-      for (int i = 0; i < 15; i++) {
-        averageVector[i] /= vectors.length;
-      }
-
-      return averageVector;
-    } catch (e) {
-      logger.e("Error en calibración nativa", error: e);
     }
-    return null;
+    for (int i = 0; i < vectorSize; i++) {
+      centroid[i] /= vectors.length;
+    }
+
+    // Calcular distancia de cada vector al centroide
+    double dist(List<double> a, List<double> b) {
+      double s = 0;
+      for (int i = 0; i < a.length; i++) {
+        s += (a[i] - b[i]) * (a[i] - b[i]);
+      }
+      return s;
+    }
+
+    // Ordenar por cercanía al centroide y usar solo los 3 mejores
+    final sorted = [...vectors]
+      ..sort((a, b) => dist(a, centroid).compareTo(dist(b, centroid)));
+    final best = sorted.take(3).toList();
+
+    final List<double> result = List<double>.filled(vectorSize, 0.0);
+    for (final v in best) {
+      for (int i = 0; i < vectorSize; i++) {
+        result[i] += v[i];
+      }
+    }
+    for (int i = 0; i < vectorSize; i++) {
+      result[i] /= best.length;
+    }
+
+    return result;
   }
 
   Future<bool> getShowCalibrationInstructions() async {
-    try {
-      final dir = await getApplicationSupportDirectory();
-      final file = File(p.join(dir.path, 'calibration_show_instr.txt'));
-      if (!await file.exists()) return true;
-      final content = await file.readAsString();
-      return content.trim() != 'false';
-    } catch (e) {
-      return true;
-    }
+    final settings = await _sessionService.getSettings();
+    return settings?.showCalibrationInstructions ?? true;
   }
 
   Future<void> setShowCalibrationInstructions(bool show) async {
-    try {
-      final dir = await getApplicationSupportDirectory();
-      final file = File(p.join(dir.path, 'calibration_show_instr.txt'));
-      await file.writeAsString(show.toString());
-    } catch (e) {
-      debugPrint("Error saving calibration instructions preference: $e");
+    final current = await _sessionService.getSettings() ?? const AppSettings();
+    await _sessionService
+        .updateSettings(current.copyWith(showCalibrationInstructions: show));
+  }
+
+  Future<String> getMonitoringIntensity() async {
+    final settings = await _sessionService.getSettings();
+    return settings?.monitoringIntensity ?? 'Medio';
+  }
+
+  Future<void> setMonitoringIntensity(String intensity) async {
+    final current = await _sessionService.getSettings() ?? const AppSettings();
+    await _sessionService
+        .updateSettings(current.copyWith(monitoringIntensity: intensity));
+  }
+
+  double _mapIntensityToThreshold(String intensity) {
+    switch (intensity) {
+      case 'Alto':
+        return 0.80;
+      case 'Bajo':
+        return 0.60;
+      case 'Medio':
+      default:
+        return 0.70;
     }
   }
 
   Future<bool?> monitorPosture(
       List<double> referenceVector, List<int> frame) async {
     try {
-      final result = _bridge.processFrame(referenceVector, frame);
-      return !result.$2;
+      final intensity = await getMonitoringIntensity();
+      final threshold = _mapIntensityToThreshold(intensity);
+
+      final result = _bridge.processFrame(referenceVector, frame, threshold);
+
+      final double score = result.$1;
+      final bool alert = result.$2;
+
+      // Score exactamente 1.0 = sin usuario o frame inválido, ignorar
+      if (score >= 0.999) return null; // null = no hay datos, no es alerta
+
+      return !alert;
     } catch (e) {
       logger.e("Error en monitoreo nativo", error: e);
     }
